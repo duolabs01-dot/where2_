@@ -1,0 +1,149 @@
+import { SupabaseClient } from '@supabase/supabase-js';
+import { Place } from '../../types';
+import { matchesCategoryFilters } from '../../lib/categoryFilter';
+import { haversineMeters } from './haversine';
+import { isOpenNowJhb } from './timeJhb';
+
+export const PRIMARY_WALK_RADIUS_M = 600; // 8-min walk @ 75m/min
+export const RIDE_EXPANSION_RADIUS_M = 1500; // ~5-min ride
+export const MAX_EXPLORE_RADIUS_M = 30000; // 30km cap
+const MIN_OPEN_RESULTS = 3;
+
+const RADIUS_STEPS = [600, 1500, 3000, 6000, 12000, 20000, 30000];
+const EXACT_RIDE_BANNER = 'Nothing perfect nearby — expanding to a 5-min ride ';
+
+type DiscoverMode = 'right_now' | 'later';
+
+export interface DiscoveryVenue extends Place {
+  distanceNumeric: number;
+  open_now: boolean;
+}
+
+export interface DiscoveryResult {
+  venues: DiscoveryVenue[];
+  mode: DiscoverMode;
+  usedRadius: number;
+  expansionCount: number;
+  bannerMessage?: string;
+  laterMessage?: string;
+  elapsedMs: number;
+}
+
+interface DiscoveryParams {
+  supabase: SupabaseClient;
+  userLat: number;
+  userLng: number;
+  openNowOnly: boolean;
+  categories?: string[];
+  searchQuery?: string;
+  fallbackRadius?: number;
+}
+
+const normalize = (value?: string | null) =>
+  String(value || '')
+    .toLowerCase()
+    .trim();
+
+const matchesQuery = (place: Place, query?: string) => {
+  const q = normalize(query);
+  if (!q) return true;
+  const haystack = normalize(
+    [
+      place.name,
+      place.category,
+      place.address,
+      place.description,
+      ...(Array.isArray(place.vibe_tags) ? place.vibe_tags : []),
+    ]
+      .filter(Boolean)
+      .join(' ')
+  );
+  return haystack.includes(q);
+};
+
+const withDefaults = (place: Place): Place => {
+  const safeCategory = place.category?.trim() ? place.category : '✨ Surprise spot';
+  return { ...place, category: safeCategory };
+};
+
+export const runDiscovery = async ({
+  supabase,
+  userLat,
+  userLng,
+  openNowOnly,
+  categories = [],
+  searchQuery = '',
+  fallbackRadius = PRIMARY_WALK_RADIUS_M,
+}: DiscoveryParams): Promise<DiscoveryResult> => {
+  const startedAt = Date.now();
+
+  const { data, error } = await supabase.from('places').select('*').limit(500);
+  if (error) {
+    throw new Error(error.message || 'Failed to fetch places');
+  }
+
+  const prepared: DiscoveryVenue[] = ((data || []) as Place[])
+    .map(withDefaults)
+    .filter((place) => typeof place.latitude === 'number' && typeof place.longitude === 'number')
+    .filter((place) => matchesQuery(place, searchQuery))
+    .filter((place) => {
+      if (!categories.length || categories.includes('All')) return true;
+      // Never hide missing category venues from results.
+      if (!place.category || place.category === '✨ Surprise spot') return true;
+      return matchesCategoryFilters(place, categories);
+    })
+    .map((place) => {
+      const distanceNumeric = haversineMeters(userLat, userLng, place.latitude!, place.longitude!);
+      const open_now = isOpenNowJhb(place.opening_time, place.closing_time);
+      return { ...place, distanceNumeric, open_now };
+    })
+    .filter((place) => place.distanceNumeric <= MAX_EXPLORE_RADIUS_M)
+    .sort((a, b) => a.distanceNumeric - b.distanceNumeric);
+
+  if (!openNowOnly) {
+    const radius = Math.max(PRIMARY_WALK_RADIUS_M, Math.min(MAX_EXPLORE_RADIUS_M, fallbackRadius));
+    const venues = prepared.filter((place) => place.distanceNumeric <= radius);
+    return {
+      venues,
+      mode: 'later',
+      usedRadius: radius,
+      expansionCount: 0,
+      elapsedMs: Date.now() - startedAt,
+    };
+  }
+
+  const openOnly = prepared.filter((place) => place.open_now);
+
+  let usedRadius = PRIMARY_WALK_RADIUS_M;
+  let expansionCount = 0;
+  for (const radius of RADIUS_STEPS) {
+    const count = openOnly.filter((place) => place.distanceNumeric <= radius).length;
+    usedRadius = radius;
+    if (radius > PRIMARY_WALK_RADIUS_M) expansionCount++;
+    if (count >= MIN_OPEN_RESULTS) break;
+  }
+
+  const rightNow = openOnly.filter((place) => place.distanceNumeric <= usedRadius);
+
+  if (rightNow.length > 0) {
+    return {
+      venues: rightNow,
+      mode: 'right_now',
+      usedRadius,
+      expansionCount,
+      bannerMessage: usedRadius >= RIDE_EXPANSION_RADIUS_M ? EXACT_RIDE_BANNER : undefined,
+      elapsedMs: Date.now() - startedAt,
+    };
+  }
+
+  const closestForLater = prepared.slice(0, 40);
+  return {
+    venues: closestForLater,
+    mode: 'later',
+    usedRadius: MAX_EXPLORE_RADIUS_M,
+    expansionCount: RADIUS_STEPS.length - 1,
+    bannerMessage: EXACT_RIDE_BANNER,
+    laterMessage: "Aweh, it's not really happening close by right now — here are the nearest spots for later.",
+    elapsedMs: Date.now() - startedAt,
+  };
+};

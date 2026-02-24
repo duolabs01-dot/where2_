@@ -6,6 +6,7 @@ interface RadiusExpansionBannerProps {
   finalRadius: number; // in meters
   usedFallback: boolean;
   isLaterMode?: boolean;
+  customMessage?: string;
   onResetFilters?: () => void;
   userCity?: string;
 }
@@ -15,9 +16,23 @@ export const RadiusExpansionBanner: React.FC<RadiusExpansionBannerProps> = ({
   finalRadius, 
   usedFallback,
   isLaterMode = false,
+  customMessage,
   onResetFilters,
   userCity = 'your city'
 }) => {
+  if (customMessage) {
+    return (
+      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-4 animate-in fade-in slide-in-from-top-2">
+        <div className="flex items-start gap-3">
+          <span className="material-symbols-outlined text-yellow-400 text-xl shrink-0 mt-0.5">radar</span>
+          <div className="text-gray-300 text-sm leading-relaxed">
+            {customMessage}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // If no changes to search scope, no banner needed
   if (expansionCount <= 0 && !usedFallback && !isLaterMode) return null;
 

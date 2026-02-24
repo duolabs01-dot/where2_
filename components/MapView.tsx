@@ -28,7 +28,7 @@ const CircleCompat = Circle as any;
 
 // --- Constants ---
 const CACHE_KEY = 'where2_places_cache';
-const MAP_RADIUS_STEPS = [2000, 5000, 10000, 30000, 50000, 100000]; // Up to 100km
+const MAP_RADIUS_STEPS = [600, 1500, 2000, 5000, 10000, 30000, 50000, 100000]; // Up to 100km
 
 // --- Distance Helper ---
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -483,7 +483,7 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
              refreshTick={refreshTick}
              isCollapsed={false}
              activeCategories={filterState.categories}
-             isDefaultRadius={filterState.radiusMeters === 2000}
+             isDefaultRadius={filterState.radiusMeters === 600}
           />
       </div>
 
@@ -642,7 +642,7 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
                                         ))}
                                     </div>
                                     <div className="flex justify-between text-[10px] text-gray-500 font-mono mt-2">
-                                        <span>2km</span>
+                                        <span>600m</span>
                                         <span>100km</span>
                                     </div>
                                 </div>

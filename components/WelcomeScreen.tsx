@@ -131,7 +131,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
         timeMode: 'open_now',
         categories: ['All'],
         groupContext: 'solo',
-        initialRadius: 2000,
+        initialRadius: 600,
         autoExpand: true
     });
   };

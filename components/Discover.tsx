@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Place } from '../types';
-import { Venue, RecommendationEngine, VenueScore } from '../lib/recommendationEngine';
+import { Venue, VenueScore } from '../lib/recommendationEngine';
 import { PageWrapper, PullToRefresh, GlassSheet, CardSkeleton } from './Layouts';
 import { PlaceDetailSheet } from './PlaceDetailSheet';
 import { usePreciseLocation } from '../lib/location';
@@ -16,9 +16,14 @@ import { useExploreState } from '../lib/exploreState';
 import { useFilters } from '../lib/filtersStore'; 
 import { RadiusExpansionBanner } from './RadiusExpansionBanner';
 import { showToast } from '../utils/toast';
-import { getUserPrefs } from '../lib/preferenceEngine';
 import { useHaptic } from '../utils/animations';
 import { useTravelSheet } from '../hooks/useTravelSheet';
+import {
+  MAX_EXPLORE_RADIUS_M,
+  PRIMARY_WALK_RADIUS_M,
+  RIDE_EXPANSION_RADIUS_M,
+  runDiscovery,
+} from '../src/lib/discoveryEngine';
 
 interface DiscoverProps {
   userCity: string;
@@ -30,7 +35,7 @@ interface DiscoverProps {
   onSwitchToMap?: () => void;
 }
 
-const RADIUS_STEPS = [2000, 5000, 10000, 15000, 20000, 25000, 30000];
+const RADIUS_STEPS = [600, 1500, 3000, 6000, 12000, 20000, 30000];
 const EXPLORE_CATEGORIES = ['All', 'Nightlife', 'Dining', 'Cafe', 'Outdoors', 'Art', 'Music', 'Hidden Gems'];
 
 export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, onSwitchToMap, onCityChange, initialIntent, onRequireAuth }) => {
@@ -50,11 +55,11 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
   const scrollTopRef = useRef(0); 
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
   const [expandedCount, setExpandedCount] = useState(0);
+  const [expansionBannerCopy, setExpansionBannerCopy] = useState<string | undefined>(undefined);
+  const [laterModeCopy, setLaterModeCopy] = useState<string | undefined>(undefined);
 
   // Guards
   const lastRequestKeyRef = useRef<string>('');
-  const lastFilterKeyRef = useRef<string>('');
-  const skipNextAutoFetchRef = useRef<boolean>(false);
   const isFetchingRef = useRef<boolean>(false);
 
   // Memoize stable preferences string to prevent render loops if parent passes new array reference
@@ -65,7 +70,6 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
   
   const timeLabel = getSmartTimeLabel();
   const vibeSentence = getVibeSentence(); 
-  const engine = useMemo(() => new RecommendationEngine(supabase), []);
 
   // Update visual timestamp only (does not trigger fetch)
   useEffect(() => {
@@ -113,109 +117,56 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
         prefs: stablePrefsKey // Use stable key
     });
 
-    const filterKey = JSON.stringify({
-        radius: filterState.radiusMeters,
-        openNow: filterState.openNowOnly,
-        categories: [...filterState.categories].sort(),
-        mode: filterState.mode,
-        query: currentQuery.trim().toLowerCase()
-    });
-
-    // Guard: Duplicate Check
     if (!forceRefresh && requestKey === lastRequestKeyRef.current) {
         return;
     }
 
-    // Guard: Silent Update Logic
-    const isFilterChange = filterKey !== lastFilterKeyRef.current;
-    const isSilentUpdate = !forceRefresh && venues.length > 0 && !isFilterChange;
-
-    if (!isSilentUpdate) {
-        setLoading(true);
-    }
+    setLoading(true);
 
     isFetchingRef.current = true;
     lastRequestKeyRef.current = requestKey;
-    lastFilterKeyRef.current = filterKey;
-    
-    if (!isSilentUpdate) {
-        setExpandedCount(0);
-        setAutoSwitchedToLater(false); 
-    }
-    
-    const initialRadius = filterState.radiusMeters;
-    const { categories: savedCats, vibes: learnedVibes } = getUserPrefs();
-    const relevantPrefs = [...new Set([...savedCats, ...learnedVibes])];
-
-    const runQuery = async (rad: number, overrideOpenNow?: boolean) => {
-        const effectiveOpenNow = overrideOpenNow !== undefined ? overrideOpenNow : filterState.openNowOnly;
-        return await engine.getTopPicks({
-            location: { lat, lng },
-            radius: rad,
-            openNow: effectiveOpenNow,
-            categories: filterState.categories, 
-            mode: filterState.mode, 
-            showAllVenues: false, 
-            userPreferences: relevantPrefs,
-            searchQuery: currentQuery
-        });
-    };
+    setExpandedCount(0);
+    setAutoSwitchedToLater(false);
+    setExpansionBannerCopy(undefined);
+    setLaterModeCopy(undefined);
 
     try {
-        let result: { venues: Venue[]; scores: VenueScore[]; error?: string, isNameSearch?: boolean } = { venues: [], scores: [] };
-        let foundRadius = initialRadius;
-        let successfulExpansion = 0;
+        const discovery = await runDiscovery({
+            supabase,
+            userLat: lat,
+            userLng: lng,
+            openNowOnly: filterState.openNowOnly,
+            categories: filterState.categories,
+            searchQuery: currentQuery,
+            fallbackRadius: filterState.openNowOnly
+              ? PRIMARY_WALK_RADIUS_M
+              : filterState.radiusMeters,
+        });
 
-        const firstPass = await runQuery(initialRadius);
-        
-        if (firstPass.isNameSearch && firstPass.venues.length > 0) {
-            result = firstPass;
-        } else {
-            if (filterState.openNowOnly && initialRadius <= 30000) {
-                 const startIndex = RADIUS_STEPS.findIndex(r => r >= initialRadius);
-                 const ladder = startIndex >= 0 ? RADIUS_STEPS.slice(startIndex) : RADIUS_STEPS;
-                 const checkList = ladder.includes(initialRadius) ? ladder : [initialRadius, ...ladder.filter(r => r > initialRadius)];
+        const enriched = await enrichPlacesWithImages(discovery.venues as Place[]);
+        const merged = enriched.map((e) => {
+            const original = discovery.venues.find((v) => v.id === e.id);
+            return { ...original, ...e } as Venue;
+        });
 
-                 for (const step of checkList) {
-                     let stepResult = (step === initialRadius) ? firstPass : await runQuery(step, true);
-                     if (stepResult.venues.length > 0) {
-                         result = stepResult;
-                         foundRadius = step;
-                         if (step > initialRadius) successfulExpansion++;
-                         break; 
-                     }
-                     foundRadius = step; 
-                 }
+        setVenues(merged);
+        setScores(
+          merged.map((venue) => {
+            const distance = venue.distanceNumeric || MAX_EXPLORE_RADIUS_M;
+            const normalized = 1 - Math.min(distance / MAX_EXPLORE_RADIUS_M, 1);
+            return { venueId: venue.id, score: Math.max(0.1, normalized) };
+          })
+        );
+        setExpandedCount(discovery.expansionCount);
+        setExpansionBannerCopy(discovery.bannerMessage);
+        setLaterModeCopy(discovery.laterMessage);
+        setAutoSwitchedToLater(discovery.mode === 'later' && filterState.openNowOnly);
 
-                 if (result.venues.length === 0 && foundRadius >= 30000) {
-                     // Respect explicit "Open Now" filter. We do not auto-switch to "any time".
-                     setAutoSwitchedToLater(false);
-                 }
-            } else {
-                 result = firstPass;
-            }
+        if (discovery.usedRadius !== filterState.radiusMeters) {
+            setRadiusMeters(discovery.usedRadius);
         }
 
-        if (foundRadius !== initialRadius && result.venues.length > 0 && !autoSwitchedToLater) {
-            skipNextAutoFetchRef.current = true; 
-            setRadiusMeters(foundRadius);
-        }
-        setExpandedCount(successfulExpansion);
-
-        if (result.venues.length > 0) {
-            const enriched = await enrichPlacesWithImages(result.venues as Place[]);
-            const merged = enriched.map(e => {
-                const original = result.venues.find(v => v.id === e.id);
-                return { ...original, ...e } as Venue;
-            });
-            setVenues(merged);
-            setScores(result.scores);
-            setLastUpdated(getCATNow()); // Update time only on success
-        } else {
-            setVenues([]);
-            setScores([]);
-            setLastUpdated(getCATNow()); // Update time even if empty to show we tried
-        }
+        setLastUpdated(getCATNow());
     } catch (e: any) {
         showToast(e.message || "Failed to load venues", 'error');
     } finally {
@@ -224,15 +175,10 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
         if (scrollTopRef.current < 20) setIsCollapsed(false);
         isFetchingRef.current = false;
     }
-  }, [filterState.mode, filterState.categories, filterState.openNowOnly, filterState.radiusMeters, exploreState.origin, engine, stablePrefsKey, searchQuery]); 
+  }, [filterState.mode, filterState.categories, filterState.openNowOnly, filterState.radiusMeters, exploreState.origin, stablePrefsKey, searchQuery, setRadiusMeters]); 
 
   useEffect(() => {
      if (exploreState.origin.lat === 0) return;
-     
-     if (skipNextAutoFetchRef.current) {
-         skipNextAutoFetchRef.current = false;
-         return;
-     }
 
      const timeoutId = setTimeout(() => {
         fetchRecommendations();
@@ -291,7 +237,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
          refreshTick={refreshTick}
          isCollapsed={isCollapsed}
          activeCategories={filterState.categories}
-         isDefaultRadius={filterState.radiusMeters === 2000}
+         isDefaultRadius={filterState.radiusMeters === PRIMARY_WALK_RADIUS_M}
        />
 
       <PullToRefresh onRefresh={handleRefresh} onScroll={handleScroll} className="flex-1 relative z-10">
@@ -335,6 +281,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
               finalRadius={filterState.radiusMeters}
               usedFallback={exploreState.origin.mode === 'fallback'}
               isLaterMode={autoSwitchedToLater}
+              customMessage={expansionBannerCopy}
               onResetFilters={() => { resetFilters(); setAutoSwitchedToLater(false); }}
               userCity={userCity}
             />
@@ -387,8 +334,8 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
                     {autoSwitchedToLater && (
                         <div className="text-center py-4 px-6 bg-white/5 rounded-2xl border border-white/5 mb-6">
                             <span className="text-2xl block mb-2">😅</span>
-                            <h3 className="text-white font-bold text-lg">Nothing’s happening nearby right now</h3>
-                            <p className="text-gray-400 text-sm mt-1">Want to plan ahead or see the wider city vibe?</p>
+                            <h3 className="text-white font-bold text-lg">Aweh, it&apos;s not really happening close by right now</h3>
+                            <p className="text-gray-400 text-sm mt-1">{laterModeCopy || 'Showing the nearest spots for later.'}</p>
                             <div className="flex gap-2 mt-4 justify-center">
                                 <button onClick={handleMapAction} className="bg-primary text-black font-bold px-4 py-2 rounded-xl text-xs hover:bg-white transition-colors">
                                     Check the Map
@@ -498,7 +445,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
                                         ))}
                                     </div>
                                     <div className="flex justify-between text-[10px] text-gray-500 font-mono mt-2">
-                                        <span>2km</span>
+                                        <span>600m</span>
                                         <span>30km</span>
                                     </div>
                                 </div>
@@ -541,3 +488,4 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
     </PageWrapper>
   );
 };
+

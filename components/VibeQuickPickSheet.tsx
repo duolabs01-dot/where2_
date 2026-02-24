@@ -69,7 +69,7 @@ export const VibeQuickPickSheet: React.FC<VibeQuickPickSheetProps> = ({ onApply,
     setMode(context);
     setCategories(storeCats);
     setOpenNowOnly(true); // "Vibe" implies NOW
-    setRadiusMeters(2000); // Standard "Vibe" radius
+    setRadiusMeters(600); // 8-min walk default
     setOrigin('preferences');
     applyCustomise();
 
@@ -82,7 +82,7 @@ export const VibeQuickPickSheet: React.FC<VibeQuickPickSheetProps> = ({ onApply,
       timeMode: 'open_now',
       categories: storeCats.length > 0 ? storeCats : ['All'],
       groupContext: context || 'solo',
-      initialRadius: 2000,
+      initialRadius: 600,
       autoExpand: true
     };
     onApply(intent);

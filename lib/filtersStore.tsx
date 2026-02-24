@@ -15,7 +15,7 @@ const FiltersContext = createContext<any>(null);
 export const FiltersProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [state, setState] = useState<FilterState>({
         mode: 'solo',
-        radiusMeters: 2000,
+        radiusMeters: 600,
         openNowOnly: true,
         categories: []
     });
@@ -28,7 +28,7 @@ export const FiltersProvider: React.FC<{ children: ReactNode }> = ({ children })
         ...s,
         categories: s.categories.includes(cat) ? s.categories.filter(x => x !== cat) : [...s.categories, cat]
     }));
-    const resetFilters = () => setState({ mode: 'solo', radiusMeters: 2000, openNowOnly: true, categories: [] });
+    const resetFilters = () => setState({ mode: 'solo', radiusMeters: 600, openNowOnly: true, categories: [] });
 
     return (
         <FiltersContext.Provider value={{ state, setMode, setRadiusMeters, setOpenNowOnly, setCategories, toggleCategory, resetFilters }}>
