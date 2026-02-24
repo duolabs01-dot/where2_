@@ -188,11 +188,8 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
                  }
 
                  if (result.venues.length === 0 && foundRadius >= 30000) {
-                     setAutoSwitchedToLater(true); 
-                     skipNextAutoFetchRef.current = true; 
-                     setOpenNowOnly(false); 
-                     const panicResult = await runQuery(foundRadius, false); 
-                     result = panicResult;
+                     // Respect explicit "Open Now" filter. We do not auto-switch to "any time".
+                     setAutoSwitchedToLater(false);
                  }
             } else {
                  result = firstPass;
@@ -435,9 +432,8 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
                         </button>
                         <button 
                             onClick={() => {
-                                setOpenNowOnly(false); 
                                 setAutoSwitchedToLater(true); 
-                                fetchRecommendations(); 
+                                setOpenNowOnly(false);
                             }}
                             className="w-full py-4 bg-white/10 text-white font-bold rounded-2xl border border-white/5 hover:bg-white/20 transition-all flex items-center justify-center gap-2 active:scale-98"
                         >

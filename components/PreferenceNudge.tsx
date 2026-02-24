@@ -2,28 +2,66 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from './ThemeProvider';
-import { preferenceEngine } from '../lib/preferenceEngine';
+import { getUserPrefs, preferenceEngine } from '../lib/preferenceEngine';
+import { useFilters } from '../lib/filtersStore';
+import { NavTab } from '../types';
 
 const VIBES = ['Heavy groove', 'Chilled drinks', 'Food + drinks', 'Just food', 'Coffee', 'Live music'];
+const DISMISS_SESSION_KEY = 'where2_nudge_dismissed';
+const DISMISS_UNTIL_KEY = 'where2_nudge_dismiss_until';
+const NUDGE_DELAY_MS = 20000;
+const NUDGE_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000;
 
-export const PreferenceNudge: React.FC<{ onApply: (prefs: string[]) => void }> = ({ onApply }) => {
+interface PreferenceNudgeProps {
+  onApply: (prefs: string[]) => void;
+  isAuthenticated: boolean;
+  activeTab: NavTab;
+  isBlocked?: boolean;
+}
+
+export const PreferenceNudge: React.FC<PreferenceNudgeProps> = ({
+  onApply,
+  isAuthenticated,
+  activeTab,
+  isBlocked = false,
+}) => {
   const [isVisible, setIsVisible] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const { tokens } = useTheme();
+  const { state: filterState } = useFilters();
 
   useEffect(() => {
-    // Check if previously dismissed in this session
-    const dismissed = sessionStorage.getItem('where2_nudge_dismissed');
-    if (dismissed) return;
+    if (!isAuthenticated || activeTab !== 'Discover' || isBlocked) {
+      setIsVisible(false);
+      return;
+    }
 
-    // Show after 30 seconds of engagement
-    const timer = setTimeout(() => setIsVisible(true), 30000);
+    const prefs = getUserPrefs();
+    const hasSavedPrefs = prefs.vibes.length > 0 || prefs.categories.length > 0;
+    if (hasSavedPrefs || filterState.categories.length > 0) {
+      setIsVisible(false);
+      return;
+    }
+
+    const dismissedThisSession = sessionStorage.getItem(DISMISS_SESSION_KEY) === 'true';
+    if (dismissedThisSession) return;
+
+    const dismissedUntilRaw = localStorage.getItem(DISMISS_UNTIL_KEY);
+    const dismissedUntil = dismissedUntilRaw ? Number(dismissedUntilRaw) : 0;
+    if (dismissedUntil > Date.now()) return;
+
+    const timer = setTimeout(() => setIsVisible(true), NUDGE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, []);
+  }, [isAuthenticated, activeTab, isBlocked, filterState.categories]);
+
+  const markDismissed = () => {
+    sessionStorage.setItem(DISMISS_SESSION_KEY, 'true');
+    localStorage.setItem(DISMISS_UNTIL_KEY, String(Date.now() + NUDGE_COOLDOWN_MS));
+  };
 
   const handleDismiss = () => {
     setIsVisible(false);
-    sessionStorage.setItem('where2_nudge_dismissed', 'true');
+    markDismissed();
   };
 
   const handleApply = () => {
@@ -33,6 +71,7 @@ export const PreferenceNudge: React.FC<{ onApply: (prefs: string[]) => void }> =
         onApply(selected);
     }
     setIsVisible(false);
+    markDismissed();
   };
 
   const toggle = (id: string) => {

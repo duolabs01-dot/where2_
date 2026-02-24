@@ -1,6 +1,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { isPlaceOpenNow } from './timeFilter';
+import { matchesCategoryFilters } from './categoryFilter';
 
 export interface Venue {
     id: string;
@@ -41,11 +42,6 @@ export class RecommendationEngine {
 
         let query = this.supabase.from('places').select('*');
 
-        // Category pre-filter (coarse)
-        if (categories?.length && !categories.includes('All')) {
-            query = query.in('category', categories);
-        }
-
         // Name search – keep this so Discover can treat it specially
         if (searchQuery) {
             query = query.ilike('name', `%${searchQuery}%`);
@@ -59,11 +55,16 @@ export class RecommendationEngine {
 
         const raw = (data || []) as Venue[];
 
-        // If we have no location information, just return results as-is
+        // If we have no location information, still apply non-distance filters.
         if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
+            const filtered = raw.filter((v) => {
+                if (!matchesCategoryFilters(v, categories)) return false;
+                if (openNow && !isPlaceOpenNow(v)) return false;
+                return true;
+            });
             return {
-                venues: raw,
-                scores: raw.map(v => ({ venueId: v.id, score: 0.9 })),
+                venues: filtered,
+                scores: filtered.map(v => ({ venueId: v.id, score: 0.9 })),
                 isNameSearch: !!searchQuery
             };
         }
@@ -91,6 +92,10 @@ export class RecommendationEngine {
 
                 const withinRadius = !radius || distanceNumeric <= radius;
                 if (!withinRadius) {
+                    return null;
+                }
+
+                if (!matchesCategoryFilters(v, categories)) {
                     return null;
                 }
 
@@ -169,3 +174,4 @@ export class RecommendationEngine {
         };
     }
 }
+

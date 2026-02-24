@@ -50,10 +50,10 @@ export const RadiusExpansionBanner: React.FC<RadiusExpansionBannerProps> = ({
           <span className="material-symbols-outlined text-purple-400 text-xl shrink-0 mt-0.5">bedtime</span>
           <div>
             <p className="font-bold text-purple-400 text-sm">
-              Everything's quiet nearby.
+              You're viewing later options.
             </p>
             <p className="text-gray-300 text-xs mt-1 leading-relaxed">
-              Looks like most spots are closed right now. We've widened the net to {radiusKm}km to find you some great spots opening soon.
+              Most nearby spots are closed right now. Open-now filter is off, so we're showing options across {radiusKm}km.
             </p>
             <div className="mt-2 flex gap-2">
                  <button 

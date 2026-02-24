@@ -24,5 +24,14 @@
     "noEmit": true
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "src/**/*", "vite.config.ts", "index.tsx", "index-1.tsx"]
+  "exclude": [
+    "node_modules",
+    "src/**/*",
+    "vite.config.ts",
+    "index.tsx",
+    "index-1.tsx",
+    "*-1.tsx",
+    "*-1.ts",
+    "*-1.html"
+  ]
 }

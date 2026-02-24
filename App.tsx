@@ -202,7 +202,10 @@ export const App = () => {
                   />
 
                   <PreferenceNudge 
-                      onApply={() => { /* preferences are persisted via preferenceEngine */ }} 
+                      onApply={() => { /* preferences are persisted via preferenceEngine */ }}
+                      isAuthenticated={!!session}
+                      activeTab={activeTab}
+                      isBlocked={showWelcome || showAuthModal || showPostModal || showResetPassword}
                   />
 
                   <ResetPasswordModal

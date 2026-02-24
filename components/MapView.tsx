@@ -13,6 +13,7 @@ import { showToast } from '../utils/toast';
 import { checkTimeFilter, isPlaceOpenNow } from '../lib/timeFilter';
 import { useExploreState } from '../lib/exploreState';
 import { useFilters } from '../lib/filtersStore';
+import { matchesCategoryFilters } from '../lib/categoryFilter';
 import { SmartFilterBar } from './SmartFilterBar';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useHaptic } from '../utils/animations';
@@ -447,10 +448,8 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
             if ((dist * 1000) > filterState.radiusMeters) return false;
         }
 
-        if (filterState.categories.length > 0 && !filterState.categories.includes('All')) {
-             if (!p.category) return false;
-             const matches = filterState.categories.some(cat => p.category.toLowerCase().includes(cat.toLowerCase()));
-             if (!matches) return false;
+        if (!matchesCategoryFilters(p, filterState.categories)) {
+             return false;
         }
 
         if (query) {
