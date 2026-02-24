@@ -1,0 +1,8 @@
+{
+  "name": "Where2? Final",
+  "description": "A real-time hyper-local activity feed for discovering what's happening in your neighborhood right now.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
