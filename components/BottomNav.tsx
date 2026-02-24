@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavTab } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useHaptic } from '../utils/animations';
-import { useTheme } from './ThemeProvider';
 
 interface BottomNavProps {
   activeTab: NavTab;
@@ -15,7 +14,6 @@ type NavVisibility = 'visible' | 'hidden' | 'peek';
 
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, onAdd }) => {
   const { trigger } = useHaptic();
-  const { tokens } = useTheme();
   const [visibility, setVisibility] = useState<NavVisibility>('visible');
   const lastScrollY = useRef(0);
   const scrollTimeout = useRef<any>(null);
@@ -51,7 +49,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
       // Stop scrolling detection -> Peek
       if (currentScrollY > 50) {
         scrollTimeout.current = setTimeout(() => {
-          setVisibility((prev) => (prev === 'hidden' ? 'peek' : 'peek'));
+          setVisibility('peek');
         }, 1200);
       }
     };
@@ -81,7 +79,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[200] flex justify-center pointer-events-none pb-[calc(env(safe-area-inset-bottom)+12px)]">
+    <div
+      className="fixed bottom-0 left-0 right-0 z-[200] flex items-end justify-center pointer-events-none"
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
+    >
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ 
@@ -117,7 +118,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
                     trigger(); 
                     onAdd(); 
                 }}
-                className="relative flex items-center justify-center w-12 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/5 mx-0.5"
+                className="relative flex items-center justify-center w-12 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/5 mx-0.5"
               >
                 <span className="material-symbols-outlined text-[24px] drop-shadow-md">add</span>
               </motion.button>
@@ -133,7 +134,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
                   trigger(); 
                   setActiveTab(item.id as NavTab); 
               }}
-              className={`relative flex items-center justify-center h-10 rounded-full transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isActive ? 'px-5 bg-white/10 border border-white/5' : 'w-12 hover:bg-white/5'}`}
+              className={`relative flex items-center justify-center h-11 rounded-full transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isActive ? 'px-5 bg-white/10 border border-white/5' : 'w-12 hover:bg-white/5'}`}
             >
               <div className="flex items-center justify-center gap-2 relative z-10">
                 <span 

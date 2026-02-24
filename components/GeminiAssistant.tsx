@@ -7,6 +7,7 @@ import { useTheme } from './ThemeProvider';
 
 // --- Configuration ---
 const STORAGE_KEY = 'where2_chat_history_v2';
+const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
 // ai instance moved to request handler to support dynamic keys
 
 // --- Types ---
@@ -119,7 +120,7 @@ export const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ isOpen, onClos
     if (!textToSend.trim() || isGenerating) return;
 
     // Initialize AI here to ensure we use the latest API key (e.g. if selected by user)
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: geminiKey });
 
     // 1. Add User Message
     const userMsg: Message = {

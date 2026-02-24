@@ -47,7 +47,8 @@ export const PreferenceNudge: React.FC<{ onApply: (prefs: string[]) => void }> =
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: 100, opacity: 0, scale: 0.95 }}
           transition={{ type: "spring", damping: 20, stiffness: 300 }}
-          className="fixed bottom-24 left-4 right-4 z-40 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[400px]"
+          className="fixed left-4 right-4 z-40 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-[400px]"
+          style={{ bottom: 'calc(var(--bottom-nav-safe) - 8px)' }}
         >
             <div className={`backdrop-blur-xl border border-primary/20 rounded-2xl p-5 shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-hidden relative ${tokens.surface}`}>
               {/* Background Glow */}

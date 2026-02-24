@@ -44,6 +44,14 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
 const DEFAULT_PREFS: string[] = [];
 
+const AppChrome: React.FC<{ children: ReactNode }> = ({ children }) => (
+  <div className="where2-shell">
+    <div className="where2-wrap h-full w-full bg-background flex flex-col relative overflow-hidden">
+      {children}
+    </div>
+  </div>
+);
+
 export const App = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [activeTab, setActiveTab] = useState<NavTab>('Discover');
@@ -95,13 +103,23 @@ export const App = () => {
   };
 
   if (!isSupabaseConfigured()) {
-    return <ConfigScreen />;
+    return (
+      <ErrorBoundary>
+        <AppChrome>
+          <ConfigScreen />
+        </AppChrome>
+      </ErrorBoundary>
+    );
   }
 
   if (showAdmin) {
       return (
           <ErrorBoundary>
-              <AdminLayout onExit={() => setShowAdmin(false)} />
+              <ThemeProvider>
+                <AppChrome>
+                  <AdminLayout onExit={() => setShowAdmin(false)} />
+                </AppChrome>
+              </ThemeProvider>
           </ErrorBoundary>
       );
   }
@@ -111,7 +129,7 @@ export const App = () => {
       <ThemeProvider>
         <ExploreProvider>
           <FiltersProvider>
-              <div className="h-full w-full bg-background flex flex-col relative overflow-hidden">
+              <AppChrome>
                   <AnimatePresence mode="wait">
                       {showWelcome ? (
                           <WelcomeScreen key="welcome" onComplete={handleWelcomeComplete} />
@@ -192,7 +210,7 @@ export const App = () => {
                       onClose={() => setShowResetPassword(false)}
                   />
 
-              </div>
+              </AppChrome>
           </FiltersProvider>
         </ExploreProvider>
       </ThemeProvider>

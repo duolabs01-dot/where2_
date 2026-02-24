@@ -690,7 +690,7 @@ export const Profile: React.FC<ProfileProps> = ({ session, onRequireAuth, onRese
   const following = profile?.following_count || (profile?.is_founder ? 124 : 0);
 
   return (
-    <div className="h-full px-5 pt-safe pb-32 overflow-y-auto no-scrollbar bg-background">
+    <div className="h-full px-5 pt-safe pb-nav-safe overflow-y-auto no-scrollbar bg-background">
        
        {/* 1. Header Card */}
        <div className="mt-6 mb-6 relative space-y-4">
@@ -858,7 +858,7 @@ export const Profile: React.FC<ProfileProps> = ({ session, onRequireAuth, onRese
             </button>
        )}
        
-       <p className="text-center text-[9px] text-gray-700 mt-2 font-mono pb-20">
+       <p className="text-center text-[9px] text-gray-700 mt-2 font-mono pb-8">
            v2.6.0 • Where2 JHB
        </p>
 

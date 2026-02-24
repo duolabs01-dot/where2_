@@ -1,8 +1,10 @@
 
 import { GoogleGenAI, Type, GenerateContentResponse } from "@google/genai";
 
+const geminiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || '';
+
 // Create instance inside function to ensure fresh API key as per guidelines
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+const getAI = () => new GoogleGenAI({ apiKey: geminiKey });
 
 export const generateTextExpansion = async (context: string): Promise<string> => {
   const ai = getAI();
@@ -82,7 +84,7 @@ export const animateBlock = async (prompt: string, imageBase64?: string): Promis
   const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
   if (!downloadLink) return null;
 
-  const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+  const response = await fetch(`${downloadLink}&key=${geminiKey}`);
   const blob = await response.blob();
   return URL.createObjectURL(blob);
 };

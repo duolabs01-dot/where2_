@@ -176,7 +176,7 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
           <motion.div style={{ y: imageY, opacity: imageOpacity }} className="absolute top-0 w-full h-[45vh] z-0"><IOSGlassImage src={displayImage} alt={place.name} className="w-full h-full object-cover" priority={true} /><div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-[#050505]" /></motion.div>
           <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 no-scrollbar flex flex-col" {...swipeHandlers}>
              <div className="w-full h-[38vh] shrink-0" />
-             <div className={`${tokens.surface} min-h-[60vh] rounded-t-[32px] relative px-6 pb-32 border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.8)]`}>
+             <div className={`${tokens.surface} min-h-[60vh] rounded-t-[32px] relative px-6 pb-sheet-safe border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.8)]`}>
                  <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-4 mb-6" />
                  <div className="mb-6">
                     <h1 className="text-3xl font-display font-bold text-white leading-tight mb-1">{place.name}</h1>

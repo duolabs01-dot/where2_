@@ -380,7 +380,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
             </div>
         </div>
 
-        <div className="px-4 space-y-6 pb-32">
+        <div className="px-4 space-y-6 pb-nav-safe">
             {loading ? (
                 <div className="flex flex-col gap-4 pt-2">
                   <CardSkeleton /> <CardSkeleton /> <CardSkeleton />
@@ -477,7 +477,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto px-6 pt-6 pb-safe overscroll-contain">
-                            <div className="pb-32 space-y-8"> 
+                            <div className="pb-safe space-y-8"> 
                                 <div>
                                     <div className="flex justify-between mb-4">
                                         <label className="text-xs font-bold text-gray-400 uppercase">Search Radius</label>

@@ -251,8 +251,8 @@ const MapPreviewCard: React.FC<{
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            // Adjusted bottom position to sit above the fixed floating nav
-            className="absolute bottom-[calc(env(safe-area-inset-bottom)+120px)] left-4 right-4 z-[500]"
+            className="absolute left-4 right-4 z-[500]"
+            style={{ bottom: 'calc(var(--bottom-nav-safe) + 8px)' }}
             drag="y"
             dragConstraints={{ top: 0, bottom: 100 }}
             onDragEnd={(e, { offset, velocity }) => {
@@ -484,7 +484,10 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
       </div>
 
       {/* Recenter FAB (Vibey Glass) - Moved up to avoid fixed nav overlap */}
-      <div className="absolute bottom-36 right-4 z-[400] pointer-events-auto">
+      <div
+        className="absolute right-4 z-[400] pointer-events-auto"
+        style={{ bottom: 'calc(var(--bottom-nav-safe) + 12px)' }}
+      >
           <button
             onClick={handleRecenter}
             className="size-14 rounded-full bg-black/60 backdrop-blur-xl border border-white/20 text-white shadow-[0_0_25px_rgba(0,0,0,0.5)] flex items-center justify-center hover:bg-white/10 active:scale-95 transition-all group"
@@ -607,7 +610,7 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
                             </button>
                         </div>
                         <div className="flex-1 overflow-y-auto px-6 pt-6 pb-safe overscroll-contain">
-                            <div className="pb-32 space-y-8"> 
+                            <div className="pb-safe space-y-8"> 
                                 {/* Radius Slider (Extended for Map) */}
                                 <div>
                                     <div className="flex justify-between mb-4">
