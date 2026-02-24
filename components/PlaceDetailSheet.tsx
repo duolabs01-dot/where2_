@@ -89,7 +89,7 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
        triggerSuccess();
        showToast(`Added to ${plan.title}`, 'success');
        setShowPlanSelector(false);
-       preferenceEngine.updateFromBehavior('check_in', place as Venue);
+       preferenceEngine.updateFromBehavior('save', place as Venue);
     }
   };
 

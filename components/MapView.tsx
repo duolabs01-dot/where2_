@@ -20,6 +20,11 @@ import { TransportModeSheet } from './TransportModeSheet';
 import { getPlaceImageUrl } from '../utils/placeholders';
 import { themeTokens } from './ThemeProvider';
 
+const MarkerCompat = Marker as any;
+const MapContainerCompat = MapContainer as any;
+const TileLayerCompat = TileLayer as any;
+const CircleCompat = Circle as any;
+
 // --- Constants ---
 const CACHE_KEY = 'where2_places_cache';
 const MAP_RADIUS_STEPS = [2000, 5000, 10000, 30000, 50000, 100000]; // Up to 100km
@@ -86,7 +91,7 @@ const VenueMarker: React.FC<VenueMarkerProps> = ({ place, onSelect }) => {
     const markerSize = isTrending ? 44 : 36;
     
     return (
-        <Marker
+        <MarkerCompat
             position={[place.latitude!, place.longitude!]}
             icon={L.divIcon({
                 className: 'venue-marker-icon',
@@ -190,7 +195,7 @@ const ClusterLayer: React.FC<{
 
         if (isCluster) {
           return (
-            <Marker
+            <MarkerCompat
               key={`cluster-${cluster.id}`}
               position={[latitude, longitude]}
               icon={L.divIcon({
@@ -499,14 +504,14 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
       </div>
 
       {/* --- Map Container --- */}
-      <MapContainer 
+      <MapContainerCompat 
         center={[-26.2041, 28.0473]} 
         zoom={13} 
         zoomControl={false} 
         className="absolute inset-0 z-0 block bg-background"
         ref={setMap}
       >
-        <TileLayer
+        <TileLayerCompat
           attribution='&copy; OpenStreetMap'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
           maxZoom={20}
@@ -516,7 +521,7 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
 
         {location && (
           <>
-            <Circle 
+            <CircleCompat 
                 center={[location.latitude, location.longitude]}
                 radius={location.accuracy}
                 pathOptions={{
@@ -528,7 +533,7 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
                 }}
             />
             
-            <Marker 
+            <MarkerCompat 
               position={[location.latitude, location.longitude]} 
               icon={L.divIcon({
                 className: 'user-location-marker',
@@ -555,7 +560,7 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
             userLocation={location}
         />
 
-      </MapContainer>
+      </MapContainerCompat>
 
       {/* --- Selected Place Card (Bottom Sheet Style) --- */}
       <AnimatePresence>

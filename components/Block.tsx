@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { CanvasBlock } from '../types';
-import { Sparkles, Trash2, Maximize2, Video } from 'lucide-react';
 
 interface BlockProps {
   block: CanvasBlock;
@@ -44,20 +43,20 @@ export const Block: React.FC<BlockProps> = ({
           ${isActive ? 'opacity-100' : ''}
         `}>
           <button onClick={() => onAIExpand(block.id)} className="p-2 bg-white shadow-sm border rounded-full hover:text-indigo-600" title="Expand with AI">
-            <Sparkles size={16} />
+            <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
           </button>
           {!isImage && !isVideo && (
             <button onClick={() => onAIVisualize(block.id)} className="p-2 bg-white shadow-sm border rounded-full hover:text-indigo-600" title="Visualize with AI">
-              <Maximize2 size={16} />
+              <span className="material-symbols-outlined text-[16px]">image</span>
             </button>
           )}
           {isImage && (
             <button onClick={() => onAIAnimate(block.id)} className="p-2 bg-white shadow-sm border rounded-full hover:text-indigo-600" title="Bring to Life">
-              <Video size={16} />
+              <span className="material-symbols-outlined text-[16px]">videocam</span>
             </button>
           )}
           <button onClick={() => onDelete(block.id)} className="p-2 bg-white shadow-sm border rounded-full hover:text-red-600" title="Delete">
-            <Trash2 size={16} />
+            <span className="material-symbols-outlined text-[16px]">delete</span>
           </button>
         </div>
 
