@@ -17,6 +17,7 @@ export interface Profile {
   follower_count?: number;
   following_count?: number;
   dob?: string;
+  share_activity?: boolean;
 }
 
 export interface Place {
@@ -58,6 +59,15 @@ export interface PlaceStory {
   media_url?: string | null;
   caption?: string | null;
   vibe_tag?: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface CheckIn {
+  id: string;
+  user_id: string;
+  place_id: string;
+  message?: string | null;
   created_at: string;
   expires_at: string;
 }

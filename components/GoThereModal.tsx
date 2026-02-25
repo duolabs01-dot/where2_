@@ -33,6 +33,32 @@ export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDr
     }
   };
 
+  const maybeCreateCheckIn = async () => {
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData.user) return;
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('share_activity')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+
+      if (profileError || !profile?.share_activity) return;
+
+      const { error: checkInError } = await supabase.from('check_ins').insert({
+        user_id: authData.user.id,
+        place_id: venue.id,
+      });
+
+      if (checkInError) {
+        throw checkInError;
+      }
+    } catch (error) {
+      console.error('check_ins insert failed', error);
+    }
+  };
+
   const requireCoords = () => {
     if (!isValidCoord(venue.latitude) || !isValidCoord(venue.longitude)) {
       showToast('Location coordinates not available for this venue.', 'error');
@@ -44,6 +70,7 @@ export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDr
   const handleDrive = async () => {
     setLaunchingMode('drive');
     await logGoThereEvent('drive');
+    await maybeCreateCheckIn();
     onDrive();
     onClose();
     setLaunchingMode(null);
@@ -55,6 +82,7 @@ export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDr
     const walkUrl = `https://www.google.com/maps/dir/?api=1&destination=${venue.latitude},${venue.longitude}&travelmode=walking`;
     window.open(walkUrl, '_blank', 'noopener,noreferrer');
     await logGoThereEvent('walk');
+    await maybeCreateCheckIn();
     onClose();
     setLaunchingMode(null);
   };
@@ -65,6 +93,7 @@ export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDr
     const boltUrl = `https://bolt.eu/en-za/ride/?destination_lat=${venue.latitude}&destination_lng=${venue.longitude}&destination_name=${encodeURIComponent(venue.name)}`;
     window.open(boltUrl, '_blank', 'noopener,noreferrer');
     await logGoThereEvent('bolt');
+    await maybeCreateCheckIn();
     onClose();
     setLaunchingMode(null);
   };
@@ -94,6 +123,7 @@ export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDr
     }, 2000);
 
     await logGoThereEvent('uber');
+    await maybeCreateCheckIn();
     onClose();
     setLaunchingMode(null);
   };

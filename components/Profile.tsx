@@ -315,8 +315,11 @@ const SettingsSheet: React.FC<{
     onClose: () => void; 
     onSignOut: () => void; 
     onGhost: () => void; 
-    ghostMode: boolean 
-}> = ({ isOpen, onClose, onSignOut, onGhost, ghostMode }) => {
+    ghostMode: boolean;
+    shareActivity: boolean;
+    shareActivitySaving: boolean;
+    onToggleShareActivity: () => void;
+}> = ({ isOpen, onClose, onSignOut, onGhost, ghostMode, shareActivity, shareActivitySaving, onToggleShareActivity }) => {
     const { tokens } = useTheme(); 
     const [view, setView] = useState<'main' | 'delete'>('main');
     const [loading, setLoading] = useState(false);
@@ -421,6 +424,31 @@ const SettingsSheet: React.FC<{
                                         >
                                             <div className={`absolute top-1 bottom-1 size-4 bg-white rounded-full transition-all shadow-sm ${ghostMode ? 'left-7' : 'left-1'}`} />
                                         </button>
+                                    </div>
+                                    <div className="p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="size-8 rounded-full bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+                                                    <span className="material-symbols-outlined text-lg">share_location</span>
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-bold text-white">Share my vibe</p>
+                                                    <p className={`text-[10px] ${tokens.mutedText}`}>Share your "Go There" check-ins</p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={onToggleShareActivity}
+                                                disabled={shareActivitySaving}
+                                                className={`w-12 h-6 rounded-full relative transition-colors ${shareActivity ? 'bg-cyan-500' : 'bg-white/10'} disabled:opacity-60`}
+                                            >
+                                                <div className={`absolute top-1 bottom-1 size-4 bg-white rounded-full transition-all shadow-sm ${shareActivity ? 'left-7' : 'left-1'}`} />
+                                            </button>
+                                        </div>
+                                        {shareActivity && (
+                                            <p className="mt-2 text-[10px] text-cyan-200/80">
+                                                Only mutual friends can see this. Auto-hides in 3 hours.
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             </section>
@@ -537,6 +565,7 @@ export const Profile: React.FC<ProfileProps> = ({ session, onRequireAuth, onRese
   const [showSavedPlaces, setShowSavedPlaces] = useState(false); 
   const [editProfileHighlight, setEditProfileHighlight] = useState<string | undefined>(undefined);
   const [showSettings, setShowSettings] = useState(false);
+  const [shareActivitySaving, setShareActivitySaving] = useState(false);
   
   // Settings State - from context now
   const { theme, setTheme } = useTheme();
@@ -589,6 +618,31 @@ export const Profile: React.FC<ProfileProps> = ({ session, onRequireAuth, onRese
       setPrivacy(newSettings);
       savePrivacySettings(newSettings);
       showToast(newState ? 'Ghost Mode Enabled 👻' : 'Ghost Mode Disabled', 'info');
+  };
+
+  const toggleShareActivity = async () => {
+      if (!session?.user || !profile || shareActivitySaving) return;
+
+      trigger();
+      const nextValue = !Boolean(profile.share_activity);
+      setShareActivitySaving(true);
+      setProfile((prev: any) => (prev ? { ...prev, share_activity: nextValue } : prev));
+
+      try {
+          const { error } = await supabase
+            .from('profiles')
+            .update({ share_activity: nextValue })
+            .eq('id', session.user.id);
+
+          if (error) throw error;
+
+          showToast(nextValue ? 'Share my vibe enabled' : 'Share my vibe disabled', 'success');
+      } catch (e: any) {
+          setProfile((prev: any) => (prev ? { ...prev, share_activity: !nextValue } : prev));
+          showToast(e?.message || 'Failed to update sharing preference', 'error');
+      } finally {
+          setShareActivitySaving(false);
+      }
   };
 
   const handleInvite = () => {
@@ -915,6 +969,9 @@ export const Profile: React.FC<ProfileProps> = ({ session, onRequireAuth, onRese
           onSignOut={handleSignOut}
           onGhost={toggleGhostMode}
           ghostMode={privacy.ghostMode}
+          shareActivity={Boolean(profile?.share_activity)}
+          shareActivitySaving={shareActivitySaving}
+          onToggleShareActivity={toggleShareActivity}
        />
     </div>
   );

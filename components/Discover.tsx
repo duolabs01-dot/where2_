@@ -70,7 +70,38 @@ interface StoryRingItem {
   coverImage?: string | null;
 }
 
-export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, onSwitchToMap, onCityChange, initialIntent, onRequireAuth }) => {
+interface FriendProfileRef {
+  first_name?: string | null;
+  full_name?: string | null;
+  username?: string | null;
+  avatar_url?: string | null;
+}
+
+interface FriendPlaceRef {
+  id?: string | null;
+  name?: string | null;
+}
+
+interface FriendActivityRow {
+  id: string;
+  user_id: string;
+  place_id: string;
+  created_at: string;
+  profiles?: FriendProfileRef | FriendProfileRef[] | null;
+  places?: FriendPlaceRef | FriendPlaceRef[] | null;
+}
+
+interface FriendActivityItem {
+  id: string;
+  userId: string;
+  placeId: string;
+  createdAt: string;
+  friendName: string;
+  avatarUrl?: string | null;
+  placeName: string;
+}
+
+export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, onSwitchToMap, onCityChange, initialIntent, onRequireAuth, session }) => {
   const { state: exploreState, setOrigin, setFocusedPlace } = useExploreState();
   const { state: filterState, setRadiusMeters, setOpenNowOnly, toggleCategory, setCategories, setMode, resetFilters, setMusicVibe } = useFilters();
 
@@ -79,6 +110,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
   const [loading, setLoading] = useState(true);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [activeStories, setActiveStories] = useState<StoryRingItem[]>([]);
+  const [friendActivity, setFriendActivity] = useState<FriendActivityItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Adaptive State
@@ -133,6 +165,71 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
     setActiveStories(mappedStories);
   }, []);
 
+  const fetchFriendActivity = useCallback(async () => {
+    if (!session?.user?.id) {
+      setFriendActivity([]);
+      return;
+    }
+
+    const { data: follows, error: followsError } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', session.user.id)
+      .eq('status', 'approved');
+
+    if (followsError) {
+      console.error('Failed to load follows for friend activity:', followsError.message);
+      setFriendActivity([]);
+      return;
+    }
+
+    const followingIds = (follows || [])
+      .map((row: { following_id?: string | null }) => row.following_id)
+      .filter((value): value is string => Boolean(value));
+
+    if (followingIds.length === 0) {
+      setFriendActivity([]);
+      return;
+    }
+
+    const { data: checkIns, error: checkInsError } = await supabase
+      .from('check_ins')
+      .select('id, user_id, place_id, created_at, profiles(first_name, full_name, username, avatar_url), places(id, name)')
+      .in('user_id', followingIds)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (checkInsError) {
+      console.error('Failed to load check-ins:', checkInsError.message);
+      setFriendActivity([]);
+      return;
+    }
+
+    const mapped = ((checkIns || []) as FriendActivityRow[]).map((row) => {
+      const profileRef = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+      const placeRef = Array.isArray(row.places) ? row.places[0] : row.places;
+      const friendName = (
+        profileRef?.first_name ||
+        profileRef?.full_name ||
+        profileRef?.username ||
+        'Friend'
+      ).trim();
+
+      return {
+        id: row.id,
+        userId: row.user_id,
+        placeId: row.place_id,
+        createdAt: row.created_at,
+        friendName,
+        avatarUrl: profileRef?.avatar_url || null,
+        placeName: (placeRef?.name || 'a spot').trim(),
+      };
+    });
+
+    setFriendActivity(mapped);
+  }, [session?.user?.id]);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(getCATNow()), 60000);
     return () => clearInterval(timer);
@@ -141,6 +238,10 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
   useEffect(() => {
     fetchActiveStories();
   }, [fetchActiveStories]);
+
+  useEffect(() => {
+    fetchFriendActivity();
+  }, [fetchFriendActivity]);
 
   useEffect(() => {
     if (!locationLoading) {
@@ -322,6 +423,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
       await Promise.all([
         fetchRecommendations(undefined, true),
         fetchActiveStories(),
+        fetchFriendActivity(),
       ]);
   };
 
@@ -342,9 +444,19 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
     return `${trimmed.slice(0, 10)}...`;
   };
 
-  const handleStoryPress = async (story: StoryRingItem) => {
-    trigger();
-    const fromLoadedVenues = venues.find((v) => v.id === story.placeId);
+  const formatMinutesAgo = (createdAt: string) => {
+    const createdTs = new Date(createdAt).getTime();
+    if (Number.isNaN(createdTs)) return 'Now';
+    const diffMs = Math.max(0, Date.now() - createdTs);
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Now';
+    if (mins < 60) return `${mins} min ago`;
+    const hours = Math.floor(mins / 60);
+    return `${hours}h ago`;
+  };
+
+  const openPlaceById = async (placeId: string, fallbackError: string) => {
+    const fromLoadedVenues = venues.find((v) => v.id === placeId);
     if (fromLoadedVenues) {
       setSelectedPlace(fromLoadedVenues as unknown as Place);
       return;
@@ -353,15 +465,25 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
     const { data, error } = await supabase
       .from('places')
       .select('*')
-      .eq('id', story.placeId)
+      .eq('id', placeId)
       .single();
 
     if (error || !data) {
-      showToast(error?.message || 'Unable to open this story right now.', 'error');
+      showToast(error?.message || fallbackError, 'error');
       return;
     }
 
     setSelectedPlace(data as Place);
+  };
+
+  const handleStoryPress = async (story: StoryRingItem) => {
+    trigger();
+    await openPlaceById(story.placeId, 'Unable to open this story right now.');
+  };
+
+  const handleFriendActivityPress = async (item: FriendActivityItem) => {
+    trigger();
+    await openPlaceById(item.placeId, 'Unable to open this check-in right now.');
   };
 
   const { openTravelSheet, TravelSheet } = useTravelSheet((place) => {
@@ -570,6 +692,54 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
                   </motion.button>
                 ))}
                 <div className="w-4 shrink-0" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence initial={false}>
+          {friendActivity.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+              className="px-4 mb-4"
+            >
+              <div className="mb-2">
+                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-[0.18em]">Friend Activity</h3>
+              </div>
+              <div className="space-y-2">
+                {friendActivity.slice(0, 6).map((item) => (
+                  <motion.button
+                    key={item.id}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleFriendActivityPress(item)}
+                    className="w-full text-left rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5 hover:bg-white/[0.08] transition-colors"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {item.avatarUrl ? (
+                        <img
+                          src={item.avatarUrl}
+                          alt={item.friendName}
+                          className="size-9 rounded-full object-cover border border-white/10 shrink-0"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="size-9 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-xs font-bold text-gray-200 shrink-0">
+                          {item.friendName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-200 truncate">
+                        <span className="font-bold">{item.friendName}</span>
+                        {' '}is heading to{' '}
+                        <span className="font-bold">{item.placeName}</span>
+                        {' \u00b7 '}
+                        <span className="text-gray-400">{formatMinutesAgo(item.createdAt)}</span>
+                      </p>
+                    </div>
+                  </motion.button>
+                ))}
               </div>
             </motion.div>
           )}
