@@ -1,7 +1,11 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Place } from '../types';
 import { useTheme } from './ThemeProvider';
+import { supabase } from '../supabase';
+import { showToast } from '../utils/toast';
+
+type TransportMode = 'drive' | 'uber' | 'bolt' | 'walk';
 
 interface GoThereModalProps {
   place: Place | null;
@@ -9,22 +13,96 @@ interface GoThereModalProps {
   onDrive: () => void;
 }
 
+const isValidCoord = (value?: number) => typeof value === 'number' && Number.isFinite(value);
+
 export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDrive }) => {
   const { tokens } = useTheme();
-  if (!place) return null;
+  const [launchingMode, setLaunchingMode] = useState<TransportMode | null>(null);
+
+  const venue = useMemo(() => place, [place]);
+  if (!venue) return null;
+
+  const logGoThereEvent = async (mode: TransportMode) => {
+    try {
+      await supabase.from('go_there_events').insert({
+        place_id: venue.id,
+        transport_mode: mode,
+      });
+    } catch (error) {
+      console.error('go_there_events insert failed', error);
+    }
+  };
+
+  const requireCoords = () => {
+    if (!isValidCoord(venue.latitude) || !isValidCoord(venue.longitude)) {
+      showToast('Location coordinates not available for this venue.', 'error');
+      return false;
+    }
+    return true;
+  };
+
+  const handleDrive = async () => {
+    setLaunchingMode('drive');
+    await logGoThereEvent('drive');
+    onDrive();
+    onClose();
+    setLaunchingMode(null);
+  };
+
+  const handleWalk = async () => {
+    if (!requireCoords()) return;
+    setLaunchingMode('walk');
+    const walkUrl = `https://www.google.com/maps/dir/?api=1&destination=${venue.latitude},${venue.longitude}&travelmode=walking`;
+    window.open(walkUrl, '_blank', 'noopener,noreferrer');
+    await logGoThereEvent('walk');
+    onClose();
+    setLaunchingMode(null);
+  };
+
+  const handleBolt = async () => {
+    if (!requireCoords()) return;
+    setLaunchingMode('bolt');
+    const boltUrl = `https://bolt.eu/en-za/ride/?destination_lat=${venue.latitude}&destination_lng=${venue.longitude}&destination_name=${encodeURIComponent(venue.name)}`;
+    window.open(boltUrl, '_blank', 'noopener,noreferrer');
+    await logGoThereEvent('bolt');
+    onClose();
+    setLaunchingMode(null);
+  };
+
+  const handleUber = async () => {
+    if (!requireCoords()) return;
+    setLaunchingMode('uber');
+
+    const uberUrl = `uber://?action=setPickup&pickup=my_location&dropoff[latitude]=${venue.latitude}&dropoff[longitude]=${venue.longitude}&dropoff[nickname]=${encodeURIComponent(venue.name)}`;
+    const uberWebUrl = `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[latitude]=${venue.latitude}&dropoff[longitude]=${venue.longitude}&dropoff[nickname]=${encodeURIComponent(venue.name)}`;
+
+    let pageBecameHidden = false;
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        pageBecameHidden = true;
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibility, { passive: true });
+
+    window.location.href = uberUrl;
+    window.setTimeout(() => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (!pageBecameHidden && document.visibilityState === 'visible') {
+        window.open(uberWebUrl, '_blank', 'noopener,noreferrer');
+      }
+    }, 2000);
+
+    await logGoThereEvent('uber');
+    onClose();
+    setLaunchingMode(null);
+  };
 
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[500]"
-      >
-        <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-md"
-          onClick={onClose}
-        />
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[500]">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
+
         <motion.div
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
@@ -34,27 +112,46 @@ export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDr
         >
           <div className="p-6 space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white">{place.name}</h3>
-              <button
-                onClick={onClose}
-                className="rounded-full bg-black/40 text-white size-8 flex items-center justify-center"
-              >
+              <h3 className="text-lg font-bold text-white">Go There</h3>
+              <button onClick={onClose} className="rounded-full bg-black/40 text-white size-8 flex items-center justify-center">
                 <span className="material-symbols-outlined">close</span>
               </button>
             </div>
-            <p className="text-sm text-gray-300">
-              This is just a stubbed navigation hint. Tap “Drive now” to trigger
-              the navigation workflow.
+
+            <p className="text-sm text-gray-300 leading-relaxed">
+              Choose a transport mode to {venue.name}.
             </p>
-            <button
-              onClick={() => {
-                onDrive();
-                onClose();
-              }}
-              className="w-full rounded-2xl bg-primary text-black font-bold py-3"
-            >
-              Drive now
-            </button>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleUber}
+                disabled={launchingMode !== null}
+                className="rounded-xl border border-white/10 bg-black/30 text-white font-bold py-3 hover:bg-white/10 disabled:opacity-60"
+              >
+                Uber
+              </button>
+              <button
+                onClick={handleBolt}
+                disabled={launchingMode !== null}
+                className="rounded-xl border border-white/10 bg-black/30 text-white font-bold py-3 hover:bg-white/10 disabled:opacity-60"
+              >
+                Bolt
+              </button>
+              <button
+                onClick={handleDrive}
+                disabled={launchingMode !== null}
+                className="rounded-xl border border-white/10 bg-black/30 text-white font-bold py-3 hover:bg-white/10 disabled:opacity-60"
+              >
+                Drive
+              </button>
+              <button
+                onClick={handleWalk}
+                disabled={launchingMode !== null}
+                className="rounded-xl border border-white/10 bg-black/30 text-white font-bold py-3 hover:bg-white/10 disabled:opacity-60"
+              >
+                Walk
+              </button>
+            </div>
           </div>
         </motion.div>
       </motion.div>
