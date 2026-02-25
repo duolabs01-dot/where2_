@@ -123,6 +123,7 @@ export const Discover: React.FC<DiscoverProps> = ({
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [activeStories, setActiveStories] = useState<StoryRingItem[]>([]);
   const [friendActivity, setFriendActivity] = useState<FriendActivityItem[]>([]);
+  const [storyPlaceholderOnly, setStoryPlaceholderOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Adaptive State
@@ -177,14 +178,19 @@ export const Discover: React.FC<DiscoverProps> = ({
 
       const { data: storyData, error: storyError } = await supabase
         .from('place_stories')
-        .select('*, places(name, cover_image)')
+        .select('id, place_id, created_at, places(name, cover_image)')
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (!cancelRef?.current) {
         if (storyError) {
-          console.error('Failed to load place stories:', storyError.message);
+          if (storyError.code === '42P01') {
+            setStoryPlaceholderOnly(true);
+            setActiveStories([]);
+          } else {
+            console.error('Failed to load place stories:', storyError.message);
+          }
         } else if (storyData) {
           const mappedStories = (storyData as StoryRow[]).map((row) => {
             const placeRef = Array.isArray(row.places) ? row.places[0] : row.places;
@@ -490,17 +496,6 @@ export const Discover: React.FC<DiscoverProps> = ({
     return `${trimmed.slice(0, 10)}...`;
   };
 
-  const formatMinutesAgo = (createdAt: string) => {
-    const createdTs = new Date(createdAt).getTime();
-    if (Number.isNaN(createdTs)) return 'Now';
-    const diffMs = Math.max(0, Date.now() - createdTs);
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return 'Now';
-    if (mins < 60) return `${mins} min ago`;
-    const hours = Math.floor(mins / 60);
-    return `${hours}h ago`;
-  };
-
   const openPlaceById = async (placeId: string, fallbackError: string) => {
     const fromLoadedVenues = venues.find((v) => v.id === placeId);
     if (fromLoadedVenues) {
@@ -700,7 +695,7 @@ export const Discover: React.FC<DiscoverProps> = ({
         </div>
 
         <AnimatePresence initial={false}>
-          {activeStories.length > 0 && (
+          {(activeStories.length > 0 || storyPlaceholderOnly) && (
             <motion.div
               initial={{ opacity: 0, y: -12 }}
               animate={{ opacity: 1, y: 0 }}
@@ -750,55 +745,33 @@ export const Discover: React.FC<DiscoverProps> = ({
                     </span>
                   </motion.button>
                 ))}
-                <div className="w-4 shrink-0" />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence initial={false}>
-          {friendActivity.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
-              className="px-4 mb-4"
-            >
-              <div className="mb-2">
-                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-[0.18em]">Friend Activity</h3>
-              </div>
-              <div className="space-y-2">
-                {friendActivity.slice(0, 6).map((item) => (
+                {storyPlaceholderOnly && (
                   <motion.button
-                    key={item.id}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleFriendActivityPress(item)}
-                    className="w-full text-left rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5 hover:bg-white/[0.08] transition-colors"
+                    key="placeholder-story"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="relative shrink-0 w-14 flex flex-col items-center gap-1.5"
+                    onClick={() => showToast('Stories coming soon for your business profile.', 'info')}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      {item.avatarUrl ? (
-                        <img
-                          src={item.avatarUrl}
-                          alt={item.friendName}
-                          className="size-9 rounded-full object-cover border border-white/10 shrink-0"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="size-9 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-xs font-bold text-gray-200 shrink-0">
-                          {item.friendName.charAt(0).toUpperCase()}
+                    <div className="relative">
+                      <div
+                        className="rounded-full p-[2px] border-2 bg-white/5"
+                        style={{ borderColor: '#00D4FF' }}
+                      >
+                        <div className="size-10 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-cyan-300">
+                          +
                         </div>
-                      )}
-                      <p className="text-xs text-gray-200 truncate">
-                        <span className="font-bold">{item.friendName}</span>
-                        {' '}is heading to{' '}
-                        <span className="font-bold">{item.placeName}</span>
-                        {' \u00b7 '}
-                        <span className="text-gray-400">{formatMinutesAgo(item.createdAt)}</span>
-                      </p>
+                      </div>
+                      <span className="absolute -top-1 -right-2 px-1.5 h-4 rounded-full bg-black/90 border border-cyan-500/40 text-[8px] font-bold text-cyan-200 flex items-center gap-1">
+                        Add
+                      </span>
                     </div>
+                    <span className="max-w-full text-[10px] font-semibold text-gray-300 text-center leading-tight">
+                      Add Story
+                    </span>
                   </motion.button>
-                ))}
+                )}
+                <div className="w-4 shrink-0" />
               </div>
             </motion.div>
           )}
@@ -826,19 +799,60 @@ export const Discover: React.FC<DiscoverProps> = ({
                             </div>
                         </div>
                     )}
-                    {venues.map((item, index) => {
-                        const s = scores.find(sc => sc.venueId === item.id);
-                        return (
-                            <VenueCard 
-                                key={item.id}
-                                venue={item}
-                                recommendationScore={s}
-                                index={index}
-                                onClick={() => setSelectedPlace(item as any as Place)}
-                                onNavigate={() => openTravelSheet(item)}
-                            />
-                        );
-                    })}
+                    {venues.length > 0 && (
+                      <>
+                        <VenueCard
+                          key={venues[0].id}
+                          venue={venues[0]}
+                          recommendationScore={scores.find(sc => sc.venueId === venues[0].id)}
+                          index={0}
+                          heightClass="h-[280px]"
+                          badge="Top Pick Tonight"
+                          onClick={() => setSelectedPlace(venues[0] as any as Place)}
+                          onNavigate={() => openTravelSheet(venues[0])}
+                        />
+
+                        {friendActivity.length > 0 && (
+                          <div className="mt-4 mb-2 px-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-xs font-bold uppercase tracking-[0.18em] text-gray-400">Friends Out Tonight →</h4>
+                            </div>
+                            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1" style={{ touchAction: 'pan-x' }}>
+                              {friendActivity.map((item) => (
+                                <button
+                                  key={item.id}
+                                  onClick={() => handleFriendActivityPress(item)}
+                                  className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/5 border border-white/10 text-xs text-white shrink-0"
+                                >
+                                  {item.avatarUrl ? (
+                                    <img src={item.avatarUrl} alt={item.friendName} className="size-7 rounded-full object-cover" />
+                                  ) : (
+                                    <div className="size-7 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-gray-200">
+                                      {item.friendName.charAt(0).toUpperCase()}
+                                    </div>
+                                  )}
+                                  <span className="whitespace-nowrap">{item.friendName} @ {item.placeName}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {venues.slice(1).map((item, index) => {
+                            const s = scores.find(sc => sc.venueId === item.id);
+                            return (
+                                <VenueCard 
+                                    key={item.id}
+                                    venue={item}
+                                    recommendationScore={s}
+                                    index={index + 1}
+                                    onClick={() => setSelectedPlace(item as any as Place)}
+                                    onNavigate={() => openTravelSheet(item)}
+                                />
+                            );
+                        })}
+                      </>
+                    )}
                 </>
             ) : (
                 <div className="flex flex-col items-center justify-center pt-10 px-2 text-center">

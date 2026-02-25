@@ -14,6 +14,8 @@ interface VenueCardProps {
   onClick: () => void;
   onNavigate: () => void;
   index?: number;
+  heightClass?: string;
+  badge?: string;
 }
 
 const crowdLabelMap: Record<CrowdSignal, string> = {
@@ -34,6 +36,8 @@ export const VenueCard: React.FC<VenueCardProps> = ({
   onClick,
   onNavigate,
   index = 0,
+  heightClass = 'h-[220px]',
+  badge,
 }) => {
   const [crowdConsensus, setCrowdConsensus] = useState<CrowdSignal | null>(null);
   const [currentImage, setCurrentImage] = useState(0);
@@ -161,7 +165,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           onClick();
         }
       }}
-      className="w-full h-[220px] text-left rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden hover:bg-white/[0.05] transition-colors cursor-pointer relative"
+      className={`w-full ${heightClass} text-left rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden hover:bg-white/[0.05] transition-colors cursor-pointer relative`}
       ref={observerRef}
       variants={shouldAnimate ? cardVariants : undefined}
       custom={index}
@@ -182,6 +186,12 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           ))}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/80" />
         </div>
+        {badge && (
+          <span className="absolute top-3 left-3 z-20 px-3 py-1 rounded-full bg-amber-500/80 text-black text-[11px] font-bold shadow-lg flex items-center gap-1">
+            <span className="material-symbols-outlined text-[14px]">star</span>
+            {badge}
+          </span>
+        )}
         {images.length > 1 && (
           <>
             <button
