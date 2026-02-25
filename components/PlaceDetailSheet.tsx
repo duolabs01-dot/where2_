@@ -250,9 +250,9 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-md pointer-events-auto" onClick={onClose} />
       <motion.div
         variants={prefersReducedMotion ? undefined : sheetVariants}
-        initial={prefersReducedMotion ? false : "hidden"}
-        animate={prefersReducedMotion ? false : "visible"}
-        exit={prefersReducedMotion ? false : "exit"}
+        initial={prefersReducedMotion ? undefined : "hidden"}
+        animate={prefersReducedMotion ? undefined : "visible"}
+        exit={prefersReducedMotion ? undefined : "exit"}
         className={`fixed bottom-0 w-full h-[95vh] rounded-t-[32px] overflow-hidden shadow-2xl flex flex-col pointer-events-auto ${tokens.surface}`}
       >
           <div className="absolute top-0 left-0 right-0 z-50 p-4 flex justify-between items-center pointer-events-none">
