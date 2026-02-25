@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { Venue, VenueScore } from '../lib/recommendationEngine';
 import { isPlaceOpenNow } from '../lib/timeFilter';
@@ -32,6 +32,10 @@ export const VenueCard: React.FC<VenueCardProps> = ({
   onNavigate,
 }) => {
   const [crowdConsensus, setCrowdConsensus] = useState<CrowdSignal | null>(null);
+  const [currentImage, setCurrentImage] = useState(0);
+  const observerRef = useRef<HTMLDivElement | null>(null);
+  const visibleRef = useRef(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,11 +73,73 @@ export const VenueCard: React.FC<VenueCardProps> = ({
     };
   }, [venue.id]);
 
+  const images = useMemo(() => {
+    const media = (venue as any).media as { url?: string }[] | undefined;
+    const extra = media?.map((m) => m.url).filter(Boolean) ?? [];
+    const cover = venue.cover_image || getPlaceImageUrl(venue as any);
+    const unique = Array.from(new Set([cover, ...extra].filter(Boolean))) as string[];
+    return unique.length > 0 ? unique : [getPlaceImageUrl(venue as any)];
+  }, [venue]);
+
+  useEffect(() => {
+    const node = observerRef.current;
+    if (!node || images.length <= 1) return;
+
+    const onIntersect: IntersectionObserverCallback = (entries) => {
+      visibleRef.current = entries[0]?.isIntersecting ?? false;
+      if (!visibleRef.current && intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      } else if (visibleRef.current && !intervalRef.current) {
+        intervalRef.current = setInterval(() => {
+          setCurrentImage((idx) => (idx + 1) % images.length);
+        }, 4000);
+      }
+    };
+
+    const io = new IntersectionObserver(onIntersect, { threshold: 0.4 });
+    io.observe(node);
+
+    return () => {
+      io.disconnect();
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    };
+  }, [images.length]);
+
+  const handleAdvance = useCallback(
+    (direction: 1 | -1) => {
+      if (images.length <= 1) return;
+      setCurrentImage((idx) => {
+        const next = idx + direction;
+        if (next < 0) return images.length - 1;
+        if (next >= images.length) return 0;
+        return next;
+      });
+    },
+    [images.length]
+  );
+
   const openStatus = useMemo(() => isPlaceOpenNow(venue), [venue]);
   const price = venue.price_level ? 'R'.repeat(Math.max(1, venue.price_level)) : 'RR';
   const distance = venue.distance || (venue.distanceNumeric ? `${Math.round(venue.distanceNumeric)}m` : 'Nearby');
-  const imageSrc = getPlaceImageUrl(venue as any);
-  const scorePct = recommendationScore ? Math.round(Math.max(0, Math.min(1, recommendationScore.score / 4)) * 100) : null;
+  const imageSrc = images[currentImage] || getPlaceImageUrl(venue as any);
+  const scorePct = recommendationScore
+    ? Math.round((Math.max(0, Math.min(3.6, recommendationScore.score || 0)) / 3.6) * 100)
+    : null;
+
+  const statusBadge = (() => {
+    if (openStatus.open_hours_unknown) {
+      return { label: 'Hours TBC', classes: 'bg-gray-500/20 text-gray-200 border-gray-500/30' };
+    }
+    if (openStatus.is_open) {
+      return { label: 'Open Now', classes: 'bg-green-500/15 text-green-200 border-green-500/30' };
+    }
+    if (!openStatus.is_open && venue.opening_time) {
+      return { label: `Opens ${venue.opening_time}`, classes: 'bg-amber-500/15 text-amber-200 border-amber-500/30' };
+    }
+    return { label: 'Closed', classes: 'bg-red-500/15 text-red-200 border-red-500/30' };
+  })();
 
   return (
     <div
@@ -86,65 +152,94 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           onClick();
         }
       }}
-      className="w-full text-left rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden hover:bg-white/[0.05] transition-colors cursor-pointer"
+      className="w-full h-[220px] text-left rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden hover:bg-white/[0.05] transition-colors cursor-pointer relative"
+      ref={observerRef}
     >
-      <div className="flex">
-        <div className="w-28 h-28 shrink-0 bg-black/30">
-          <img src={imageSrc} alt={venue.name} className="w-full h-full object-cover" loading="lazy" />
+      <div className="absolute inset-0">
+        <div className="absolute inset-0">
+          {images.map((src, idx) => (
+            <img
+              key={src}
+              src={src}
+              alt={venue.name}
+              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-400 ${idx === currentImage ? 'opacity-100' : 'opacity-0'}`}
+              loading="lazy"
+            />
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/80" />
         </div>
-
-        <div className="flex-1 min-w-0 p-4">
-          <div className="flex items-start justify-between gap-2">
-            <h3 className="text-white font-bold text-base leading-tight truncate">{venue.name}</h3>
-            {scorePct !== null && (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-cyan-500/25 text-cyan-300 bg-cyan-500/10">
-                {scorePct}% match
-              </span>
-            )}
-          </div>
-
-          <div className="mt-1 text-xs text-gray-400 flex items-center gap-2">
-            <span className="truncate">{venue.category}</span>
-            <span className="size-1 rounded-full bg-gray-600" />
-            <span>{distance}</span>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span
-              className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${
-                openStatus.open_hours_unknown
-                  ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
-                  : openStatus.is_open
-                    ? 'bg-green-500/10 text-green-300 border-green-500/20'
-                    : 'bg-red-500/10 text-red-300 border-red-500/20'
-              }`}
-            >
-              {openStatus.open_hours_unknown ? 'Hours Unknown' : openStatus.is_open ? 'Open' : 'Closed'}
-            </span>
-
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md border border-white/10 text-gray-300 bg-white/[0.03]">
-              {price}
-            </span>
-
-            {crowdConsensus && (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${crowdStyleMap[crowdConsensus]}`}>
-                {crowdLabelMap[crowdConsensus]}
-              </span>
-            )}
-          </div>
-        </div>
+        {images.length > 1 && (
+          <>
+            <button
+              aria-label="Previous image"
+              className="absolute inset-y-0 left-0 w-[20%]"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAdvance(-1);
+              }}
+            />
+            <button
+              aria-label="Next image"
+              className="absolute inset-y-0 right-0 w-[20%]"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAdvance(1);
+              }}
+            />
+            <div className="absolute bottom-3 right-4 flex gap-1">
+              {images.map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`size-2 rounded-full border border-white/40 ${idx === currentImage ? 'bg-white' : 'bg-white/20'}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="px-4 pb-4">
+      <div className="absolute inset-0 flex flex-col justify-end p-4 gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="text-white font-bold text-lg leading-tight truncate">{venue.name}</h3>
+            <div className="mt-0.5 text-xs text-gray-300 flex items-center gap-2">
+              <span className="truncate">{venue.category}</span>
+              <span className="size-1 rounded-full bg-gray-500" />
+              <span>{distance}</span>
+            </div>
+          </div>
+          {scorePct !== null && scorePct > 50 && (
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full border border-cyan-500/40 text-cyan-100 bg-black/50">
+              {scorePct}% match
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`text-[10px] font-bold uppercase px-2.5 py-1 rounded-md border ${statusBadge.classes}`}>
+            {statusBadge.label}
+          </span>
+
+          <span className="text-[10px] font-bold px-2.5 py-1 rounded-md border border-white/15 text-gray-200 bg-black/40">
+            {price}
+          </span>
+
+          {crowdConsensus && (
+            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border ${crowdStyleMap[crowdConsensus]}`}>
+              {crowdLabelMap[crowdConsensus]}
+            </span>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             onNavigate();
           }}
-          className="w-full py-2.5 rounded-xl bg-primary text-black font-bold text-sm hover:bg-white transition-colors"
+          className="mt-2 w-full py-2.5 rounded-xl bg-black/50 text-white font-bold text-sm border border-white/10 hover:bg-black/70 transition-colors"
         >
-          Go there
+          Go There →
         </button>
       </div>
     </div>
