@@ -7,7 +7,7 @@ import { useHaptic } from '../utils/animations';
 interface BottomNavProps {
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
-  onAdd: () => void;
+  onAdd: (tab: NavTab) => void;
 }
 
 type NavVisibility = 'visible' | 'hidden' | 'peek';
@@ -73,7 +73,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
   const navItems = [
     { id: 'Discover', icon: 'explore', label: 'Home' },
     { id: 'Map', icon: 'map', label: 'Map' },
-    { id: 'add', icon: 'add', label: 'Post' },
+    { id: 'add', icon: 'add', label: 'Quick' },
     { id: 'Plans', icon: 'calendar_today', label: 'Plans' },
     { id: 'Profile', icon: 'person', label: 'You' },
   ];
@@ -116,7 +116,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
                     e.stopPropagation(); 
                     handleInteraction(); 
                     trigger(); 
-                    onAdd(); 
+                    onAdd(activeTab); 
                 }}
                 className="relative flex items-center justify-center w-12 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/5 mx-0.5"
               >

@@ -784,7 +784,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
           )}
         </AnimatePresence>
 
-        <div className="px-4 space-y-6 pb-32">
+        <div className="px-4 space-y-6" style={{ paddingBottom: 'var(--bottom-nav-safe)' }}>
             {loading ? (
                 <div className="flex flex-col gap-4 pt-2">
                   <CardSkeleton /> <CardSkeleton /> <CardSkeleton />

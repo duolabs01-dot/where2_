@@ -139,16 +139,32 @@ const AppShell: React.FC = () => {
     if (pending) pending();
   }, []);
 
-  const handleAddPost = useCallback(() => {
-    handleRequireAuth(() => {
-      const hasPlace = (discoveryState.venues || []).length > 0;
-      if (!hasPlace) {
-        showToast('Open a venue first, then post an update.', 'info');
+  const handleAddPost = useCallback(
+    (tab: NavTab) => {
+      if (tab === 'Discover') {
+        handleRequireAuth(() => {
+          const hasPlace = (discoveryState.venues || []).length > 0;
+          if (!hasPlace) {
+            showToast('Open a venue first, then post an update.', 'info');
+            return;
+          }
+          setPostOpen(true);
+        });
         return;
       }
-      setPostOpen(true);
-    });
-  }, [discoveryState.venues, handleRequireAuth]);
+      if (tab === 'Map') {
+        showToast('Drop a pin mode coming soon.', 'info');
+        return;
+      }
+      if (tab === 'Plans') {
+        showToast('Creating a new plan...', 'info');
+        setActiveTab('Plans');
+        return;
+      }
+      // Profile tab: no action
+    },
+    [discoveryState.venues, handleRequireAuth]
+  );
 
   const handleResetVibe = useCallback(() => {
     resetFilters();
@@ -172,7 +188,7 @@ const AppShell: React.FC = () => {
         />
       ) : (
         <>
-          <div data-scroll-host="main" className="h-full overflow-y-auto no-scrollbar pb-[calc(env(safe-area-inset-bottom)+92px)]">
+          <div data-scroll-host="main" className="h-full overflow-y-auto no-scrollbar" style={{ paddingBottom: 'var(--bottom-nav-safe)' }}>
             {activeTab === 'Discover' && (
               <Discover
                 userCity="Johannesburg"
