@@ -42,9 +42,9 @@ export const Caption: React.FC<TextProps> = ({ children, className = '' }) => (
 // --- Page Wrapper for Transitions ---
 export const PageWrapper: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <motion.div
-    initial={prefersReducedMotion ? false : "initial"}
-    animate={prefersReducedMotion ? false : "in"}
-    exit={prefersReducedMotion ? false : "out"}
+    initial={prefersReducedMotion ? undefined : "initial"}
+    animate={prefersReducedMotion ? undefined : "in"}
+    exit={prefersReducedMotion ? undefined : "out"}
     variants={prefersReducedMotion ? undefined : pageVariants}
     className={`h-full w-full ${className}`}
   >
