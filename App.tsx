@@ -101,7 +101,7 @@ const AppShell: React.FC = () => {
   );
 
   return (
-    <div className="h-[100dvh] bg-background text-white overflow-hidden">
+    <div className="h-[100dvh] w-full bg-background text-white overflow-hidden relative">
       {showWelcome ? (
         <WelcomeScreen onComplete={handleWelcomeComplete} />
       ) : (

@@ -32,6 +32,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="Where2" />
@@ -56,7 +57,10 @@ export default function RootLayout({
           crossOrigin=""
         />
       </head>
-      <body className="font-body antialiased selection:bg-primary selection:text-white">
+      <body
+        className="font-body antialiased selection:bg-primary selection:text-white"
+        style={{ height: '100dvh', width: '100%' }}
+      >
         {children}
       </body>
     </html>
