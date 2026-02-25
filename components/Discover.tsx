@@ -50,6 +50,26 @@ const MUSIC_VIBES = [
     { id: 'Blues / Ballads', label: 'Blues / Ballads 🎷', color: 'bg-amber-500/10 text-amber-300 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.2)]' },
 ];
 
+interface StoryPlaceRef {
+  name?: string | null;
+  cover_image?: string | null;
+}
+
+interface StoryRow {
+  id: string;
+  place_id: string;
+  created_at: string;
+  places?: StoryPlaceRef | StoryPlaceRef[] | null;
+}
+
+interface StoryRingItem {
+  id: string;
+  placeId: string;
+  createdAt: string;
+  placeName: string;
+  coverImage?: string | null;
+}
+
 export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, onSwitchToMap, onCityChange, initialIntent, onRequireAuth }) => {
   const { state: exploreState, setOrigin, setFocusedPlace } = useExploreState();
   const { state: filterState, setRadiusMeters, setOpenNowOnly, toggleCategory, setCategories, setMode, resetFilters, setMusicVibe } = useFilters();
@@ -58,6 +78,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
   const [scores, setScores] = useState<VenueScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
+  const [activeStories, setActiveStories] = useState<StoryRingItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Adaptive State
@@ -85,10 +106,41 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
   const vibeSentence = getVibeSentence(); 
   const engine = useMemo(() => new RecommendationEngine(supabase), []);
 
+  const fetchActiveStories = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('place_stories')
+      .select('*, places(name, cover_image)')
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error('Failed to load place stories:', error.message);
+      return;
+    }
+
+    const mappedStories = ((data || []) as StoryRow[]).map((row) => {
+      const placeRef = Array.isArray(row.places) ? row.places[0] : row.places;
+      return {
+        id: row.id,
+        placeId: row.place_id,
+        createdAt: row.created_at,
+        placeName: (placeRef?.name || 'Venue').trim(),
+        coverImage: placeRef?.cover_image || null,
+      };
+    });
+
+    setActiveStories(mappedStories);
+  }, []);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(getCATNow()), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    fetchActiveStories();
+  }, [fetchActiveStories]);
 
   useEffect(() => {
     if (!locationLoading) {
@@ -267,11 +319,49 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
 
   const handleRefresh = async () => {
       setIsCollapsed(false); 
-      await fetchRecommendations(undefined, true);
+      await Promise.all([
+        fetchRecommendations(undefined, true),
+        fetchActiveStories(),
+      ]);
   };
 
   const handleMapAction = () => {
       if (onSwitchToMap) onSwitchToMap();
+  };
+
+  const isStoryLive = (createdAt: string) => {
+    const createdTs = new Date(createdAt).getTime();
+    if (Number.isNaN(createdTs)) return false;
+    const ageMs = Date.now() - createdTs;
+    return ageMs >= 0 && ageMs <= 2 * 60 * 60 * 1000;
+  };
+
+  const truncateStoryName = (name: string) => {
+    const trimmed = (name || '').trim();
+    if (trimmed.length <= 10) return trimmed;
+    return `${trimmed.slice(0, 10)}...`;
+  };
+
+  const handleStoryPress = async (story: StoryRingItem) => {
+    trigger();
+    const fromLoadedVenues = venues.find((v) => v.id === story.placeId);
+    if (fromLoadedVenues) {
+      setSelectedPlace(fromLoadedVenues as unknown as Place);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('places')
+      .select('*')
+      .eq('id', story.placeId)
+      .single();
+
+    if (error || !data) {
+      showToast(error?.message || 'Unable to open this story right now.', 'error');
+      return;
+    }
+
+    setSelectedPlace(data as Place);
   };
 
   const { openTravelSheet, TravelSheet } = useTravelSheet((place) => {
@@ -427,6 +517,63 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
                 <div className="w-4 shrink-0" />
             </div>
         </div>
+
+        <AnimatePresence initial={false}>
+          {activeStories.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="relative w-full mb-4"
+            >
+              <div className="absolute left-0 top-0 bottom-3 w-8 bg-gradient-to-r from-background to-transparent z-20 pointer-events-none" />
+              <div className="absolute right-0 top-0 bottom-3 w-8 bg-gradient-to-l from-background to-transparent z-20 pointer-events-none" />
+              <div className="flex gap-3 overflow-x-auto no-scrollbar px-4 pb-3 w-full" style={{ touchAction: 'pan-x' }}>
+                {activeStories.map((story, index) => (
+                  <motion.button
+                    key={story.id}
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.04, duration: 0.2 }}
+                    onClick={() => handleStoryPress(story)}
+                    className="relative shrink-0 w-14 flex flex-col items-center gap-1.5"
+                  >
+                    <div className="relative">
+                      <div
+                        className="rounded-full p-[2px] border-2 bg-white/5"
+                        style={{ borderColor: '#00D4FF' }}
+                      >
+                        {story.coverImage ? (
+                          <img
+                            src={story.coverImage}
+                            alt={story.placeName}
+                            className="size-10 rounded-full object-cover bg-white/10"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="size-10 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-cyan-300">
+                            {story.placeName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      {isStoryLive(story.createdAt) && (
+                        <span className="absolute -top-1 -right-2 px-1.5 h-4 rounded-full bg-black/90 border border-red-500/40 text-[8px] font-bold text-red-300 flex items-center gap-1">
+                          <span className="size-1.5 rounded-full bg-red-500" />
+                          LIVE
+                        </span>
+                      )}
+                    </div>
+                    <span className="max-w-full text-[10px] font-semibold text-gray-300 text-center leading-tight">
+                      {truncateStoryName(story.placeName)}
+                    </span>
+                  </motion.button>
+                ))}
+                <div className="w-4 shrink-0" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="px-4 space-y-6 pb-32">
             {loading ? (
