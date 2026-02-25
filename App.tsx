@@ -43,6 +43,15 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 const DEFAULT_PREFS: string[] = [];
+const SIGNED_IN_SPLASH_MS = 5000;
+const DEFAULT_WELCOME_INTENT: SearchIntent = {
+  mode: 'smart_auto',
+  timeMode: 'open_now',
+  categories: ['All'],
+  groupContext: 'solo',
+  initialRadius: 600,
+  autoExpand: true,
+};
 
 const AppChrome: React.FC<{ children: ReactNode }> = ({ children }) => (
   <div className="where2-shell">
@@ -63,14 +72,11 @@ export const App = () => {
   // Welcome Screen Logic
   const [showWelcome, setShowWelcome] = useState(true);
   const [initialIntent, setInitialIntent] = useState<SearchIntent | null>(null);
+  const [welcomeStartedAt, setWelcomeStartedAt] = useState<number>(() => Date.now());
 
   // App Init
   useEffect(() => {
     initTheme();
-    
-    // Check local storage for welcome dismissal
-    const welcomed = localStorage.getItem('where2_welcomed');
-    if (welcomed) setShowWelcome(false);
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -88,10 +94,33 @@ export const App = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (showWelcome) setWelcomeStartedAt(Date.now());
+  }, [showWelcome]);
+
+  useEffect(() => {
+    if (!showWelcome || !session) return;
+    const elapsed = Date.now() - welcomeStartedAt;
+    const remaining = Math.max(0, SIGNED_IN_SPLASH_MS - elapsed);
+    const timer = window.setTimeout(() => {
+      handleWelcomeComplete(DEFAULT_WELCOME_INTENT);
+    }, remaining);
+    return () => window.clearTimeout(timer);
+  }, [showWelcome, session, welcomeStartedAt]);
+
+  const finalizeWelcome = (intent: SearchIntent) => {
+    setInitialIntent(intent);
+    setShowWelcome(false);
+  };
+
   const handleWelcomeComplete = (intent: SearchIntent) => {
-      setInitialIntent(intent);
-      setShowWelcome(false);
-      localStorage.setItem('where2_welcomed', 'true');
+      const elapsed = Date.now() - welcomeStartedAt;
+      const remaining = session ? Math.max(0, SIGNED_IN_SPLASH_MS - elapsed) : 0;
+      if (remaining > 0) {
+        window.setTimeout(() => finalizeWelcome(intent), remaining);
+        return;
+      }
+      finalizeWelcome(intent);
   };
 
   const handleRequireAuth = (action?: () => void) => {
@@ -170,7 +199,6 @@ export const App = () => {
                                           session={session}
                                           onRequireAuth={handleRequireAuth}
                                           onResetVibe={() => {
-                                              localStorage.removeItem('where2_welcomed');
                                               window.location.reload();
                                           }}
                                           onOpenAdmin={() => setShowAdmin(true)}

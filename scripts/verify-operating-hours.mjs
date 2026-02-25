@@ -15,16 +15,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
-const inferHours = (name = '', category = '') => {
-  const n = name.toLowerCase();
-  const c = category.toLowerCase();
-
-  if (n.includes('seam coffee')) return { opening_time: '06:30', closing_time: '17:30' };
-  if (c.includes('coffee') || c.includes('cafe')) return { opening_time: '06:30', closing_time: '17:30' };
-  if (c.includes('bar') || c.includes('club') || c.includes('nightlife')) return { opening_time: '17:00', closing_time: '02:00' };
-  if (c.includes('restaurant') || c.includes('dining') || c.includes('food')) return { opening_time: '11:00', closing_time: '22:00' };
-  return { opening_time: '09:00', closing_time: '21:00' };
-};
+const normalizeName = (value = '') => value.toLowerCase().replace(/\s+/g, ' ').trim();
 
 const hasValidTime = (value) => typeof value === 'string' && TIME_RE.test(value.trim());
 
@@ -34,6 +25,11 @@ const normalizeTime = (value) => {
   if (!TIME_RE.test(raw)) return null;
   return raw;
 };
+
+// Explicit corrections only; no category-based inference.
+const EXPLICIT_HOURS_BY_NAME = new Map([
+  ['seam coffee', { opening_time: '06:30', closing_time: '17:30' }],
+]);
 
 const run = async () => {
   const { data, error } = await supabase
@@ -48,39 +44,58 @@ const run = async () => {
 
   const rows = data || [];
   const updates = [];
-  const seamRows = rows.filter((row) => (row.name || '').toLowerCase().includes('seam coffee'));
+  const unresolved = [];
+  const seamRows = rows.filter((row) => normalizeName(row.name || '').includes('seam coffee'));
 
   for (const row of rows) {
-    const normalizedOpen = normalizeTime(row.opening_time);
-    const normalizedClose = normalizeTime(row.closing_time);
-    const inferred = inferHours(row.name, row.category);
+    const open = normalizeTime(row.opening_time);
+    const close = normalizeTime(row.closing_time);
+    const nameKey = normalizeName(row.name || '');
+    const explicit = EXPLICIT_HOURS_BY_NAME.get(nameKey);
 
-    const opening_time = normalizedOpen || inferred.opening_time;
-    const closing_time = normalizedClose || inferred.closing_time;
+    const needsFix = !hasValidTime(row.opening_time) || !hasValidTime(row.closing_time);
+    if (!needsFix && !explicit) continue;
 
-    const hasMissing = !hasValidTime(row.opening_time) || !hasValidTime(row.closing_time);
-    const seamNeedsCorrection = (row.name || '').toLowerCase().includes('seam coffee')
-      && (opening_time !== row.opening_time || closing_time !== row.closing_time);
-
-    if (hasMissing || seamNeedsCorrection) {
-      updates.push({
-        id: row.id,
-        name: row.name,
-        previous_opening_time: row.opening_time,
-        previous_closing_time: row.closing_time,
-        opening_time,
-        closing_time,
-      });
+    if (explicit) {
+      const nextOpen = explicit.opening_time;
+      const nextClose = explicit.closing_time;
+      if (open !== nextOpen || close !== nextClose) {
+        updates.push({
+          id: row.id,
+          name: row.name,
+          previous_opening_time: row.opening_time,
+          previous_closing_time: row.closing_time,
+          opening_time: nextOpen,
+          closing_time: nextClose,
+          reason: 'explicit-name-rule',
+        });
+      }
+      continue;
     }
+
+    unresolved.push({
+      id: row.id,
+      name: row.name,
+      category: row.category,
+      city: row.city,
+      address: row.address,
+      opening_time: row.opening_time,
+      closing_time: row.closing_time,
+      reason: 'missing-or-invalid-time-no-explicit-rule',
+    });
   }
 
   console.log(`Total places: ${rows.length}`);
   console.log(`Seam Coffee rows: ${seamRows.length}`);
-  console.log(`Rows requiring hour correction: ${updates.length}`);
+  console.log(`Rows with explicit updates: ${updates.length}`);
+  console.log(`Rows still unresolved: ${unresolved.length}`);
+  console.log('--- Explicit updates (preview) ---');
   console.log(JSON.stringify(updates.slice(0, 25), null, 2));
+  console.log('--- Unresolved rows (preview) ---');
+  console.log(JSON.stringify(unresolved.slice(0, 50), null, 2));
 
   if (!APPLY) {
-    console.log('Dry run complete. Re-run with --apply to write updates.');
+    console.log('Dry run complete. Re-run with --apply to write explicit updates only.');
     return;
   }
 
@@ -105,6 +120,9 @@ const run = async () => {
   }
 
   console.log(`Update complete. Success: ${success}, Failed: ${failed}`);
+  if (unresolved.length > 0) {
+    console.log('Some rows still need manual operating-hour updates (see unresolved preview above).');
+  }
 };
 
 run().catch((err) => {

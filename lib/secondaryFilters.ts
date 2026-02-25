@@ -26,21 +26,13 @@ const parseMinutes = (timeText?: string | null): number | null => {
   return hh * 60 + mm;
 };
 
-const hashSeed = (value: string): number => {
-  let seed = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    seed = (seed * 31 + value.charCodeAt(i)) % 100000;
-  }
-  return seed;
-};
-
 const mapNumericCrowd = (value: number): CrowdFilter => {
   if (value <= 1.5) return 'quiet';
   if (value <= 2.5) return 'vibes';
   return 'packed';
 };
 
-export const getCrowdSignal = (place: SecondaryFilterPlace): CrowdFilter => {
+export const getCrowdSignal = (place: SecondaryFilterPlace): CrowdFilter | null => {
   const crowdReports = (place as any).crowd_reports;
 
   if (typeof crowdReports === 'number') {
@@ -72,11 +64,7 @@ export const getCrowdSignal = (place: SecondaryFilterPlace): CrowdFilter => {
     }
   }
 
-  const seedBase = `${place.id ?? ''}:${place.name ?? ''}`;
-  const mockIndex = hashSeed(seedBase) % 3;
-  if (mockIndex === 0) return 'quiet';
-  if (mockIndex === 1) return 'vibes';
-  return 'packed';
+  return null;
 };
 
 export const getPriceVibeFromLevel = (priceLevel?: number | null): PriceVibeFilter => {
@@ -105,8 +93,11 @@ export const applySecondaryFilters = <T extends SecondaryFilterPlace>(
       return false;
     }
 
-    if (filterState.crowd !== 'any' && getCrowdSignal(place) !== filterState.crowd) {
-      return false;
+    if (filterState.crowd !== 'any') {
+      const crowdSignal = getCrowdSignal(place);
+      if (crowdSignal && crowdSignal !== filterState.crowd) {
+        return false;
+      }
     }
 
     if (

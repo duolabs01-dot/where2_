@@ -1,4 +1,4 @@
-
+﻿
 import React, { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, useMapEvents, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -82,7 +82,7 @@ interface VenueMarkerProps {
 const VenueMarker: React.FC<VenueMarkerProps> = ({ place, onSelect }) => {
     const isOpen = isPlaceOpenNow(place);
     const isTrending = (place.price_level || 0) > 2;
-    const rating = 4.0 + (place.name.length % 10) / 10;
+
     
     const markerColor = isOpen ? '#10B981' : '#EF4444';
     const markerSize = isTrending ? 44 : 36;
@@ -108,7 +108,7 @@ const VenueMarker: React.FC<VenueMarkerProps> = ({ place, onSelect }) => {
                   ">
                     ${isTrending ? `<div style="position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; background: #FF5050; border: 2px solid #000; border-radius: 50%;"></div>` : ''}
                     <div style="font-size: ${isTrending ? '14px' : '12px'}; color: white; font-weight: bold; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">
-                      ${rating >= 4.5 ? '★' : rating.toFixed(1)}
+                      •
                     </div>
                   </div>
                 `,
@@ -244,7 +244,7 @@ const MapPreviewCard: React.FC<{
         distanceStr = d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)}km`;
     }
     const price = place.price_level ? 'R'.repeat(place.price_level) : 'RR';
-    const rating = 4.0 + (place.name.length % 10) / 10; // Mock
+    const rating = typeof (place as any).rating === 'number' ? (place as any).rating : null;
     const displayImage = getPlaceImageUrl(place);
 
     return (
@@ -281,14 +281,16 @@ const MapPreviewCard: React.FC<{
                         <div>
                             <div className="flex justify-between items-start">
                                 <h3 className="font-bold text-lg text-white truncate pr-2">{place.name}</h3>
-                                <div className="flex items-center gap-1 text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-yellow-400 font-bold shrink-0">
-                                    <span>★</span>{rating.toFixed(1)}
-                                </div>
+                                {rating !== null && (
+                                  <div className="flex items-center gap-1 text-[10px] bg-white/10 px-1.5 py-0.5 rounded text-yellow-400 font-bold shrink-0">
+                                      <span className="material-symbols-outlined text-[11px] filled-icon">star</span>{rating.toFixed(1)}
+                                  </div>
+                                )}
                             </div>
                             
                             <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
                                 <span className="font-medium text-white">{place.category}</span>
-                                <span>•</span>
+                                <span>â€¢</span>
                                 <span>{distanceStr}</span>
                             </div>
                         </div>
@@ -676,3 +678,4 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
     </PageWrapper>
   );
 };
+

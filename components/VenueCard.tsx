@@ -93,7 +93,10 @@ export const VenueCard: React.FC<VenueCardProps> = ({ venue, recommendationScore
 
   const isOpen = isPlaceOpenNow(venue);
   const hasHours = !!(venue.opening_time && venue.closing_time);
-  const rating = 4.0 + ((venue.price_level || 2) * 0.2) + (venue.name.length % 5) * 0.1;
+  const rating = useMemo(() => {
+    const raw = (venue as any).rating;
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+  }, [venue]);
 
   const displayImage = getPlaceImageUrl(venue);
   const isPlaceholder = isPlaceholderImage(displayImage);
@@ -354,14 +357,11 @@ export const VenueCard: React.FC<VenueCardProps> = ({ venue, recommendationScore
     if (recommendationScore && recommendationScore.score > 0.95) {
       return { text: 'Trending nearby', icon: 'trending_up', color: 'text-amber-400' };
     }
-    if (rating >= 4.6) {
-      return { text: 'Popular right now', icon: 'local_fire_department', color: 'text-orange-400' };
-    }
     if (venue.distanceNumeric && venue.distanceNumeric < 500) {
       return { text: 'Quick walk', icon: 'directions_walk', color: 'text-blue-400' };
     }
     return null;
-  }, [isSaved, socialProof, recommendationScore, rating, venue.distanceNumeric]);
+  }, [isSaved, socialProof, recommendationScore, venue.distanceNumeric]);
 
   return (
     <motion.div
@@ -430,12 +430,14 @@ export const VenueCard: React.FC<VenueCardProps> = ({ venue, recommendationScore
           </motion.button>
         </div>
 
-        <div className="absolute bottom-3 right-3 z-20">
-          <div className="backdrop-blur-xl bg-black/60 border border-white/10 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg">
-            <span className="material-symbols-outlined text-[12px] text-yellow-400 filled-icon">star</span>
-            <span className="text-[10px] font-bold text-white">{rating.toFixed(1)}</span>
+        {rating !== null && (
+          <div className="absolute bottom-3 right-3 z-20">
+            <div className="backdrop-blur-xl bg-black/60 border border-white/10 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg">
+              <span className="material-symbols-outlined text-[12px] text-yellow-400 filled-icon">star</span>
+              <span className="text-[10px] font-bold text-white">{rating.toFixed(1)}</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="relative z-10 px-4 pb-4 -mt-8 flex flex-col gap-1">

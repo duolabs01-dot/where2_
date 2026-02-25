@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
-    "start": "next start -p 3000"
+    "start": "next start -p 3000",
+    "hours:verify": "node scripts/verify-operating-hours.mjs",
+    "hours:apply": "node scripts/verify-operating-hours.mjs --apply"
   },
   "dependencies": {
     "next": "^14.2.33",

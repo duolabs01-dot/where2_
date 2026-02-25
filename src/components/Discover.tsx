@@ -452,15 +452,11 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
                     )}
                     {venues.map((item) => {
                         const s = scores.find(sc => sc.venueId === item.id);
-                        const seed = parseInt(item.id.replace(/\D/g, '') || '0', 10);
-                        const mockSaved = 12 + (seed % 80);
-                        const mockFriends = (seed % 5) > 3 ? (seed % 3) + 1 : 0;
                         return (
                             <VenueCard 
                                 key={item.id}
                                 venue={item}
                                 recommendationScore={s}
-                                socialProof={{ savedCount: mockSaved, friendsCount: mockFriends }}
                                 onClick={() => setSelectedPlace(item as any as Place)}
                                 onNavigate={() => openTravelSheet(item)}
                             />

@@ -5,26 +5,13 @@ export type MusicTag = Exclude<MusicFilter, 'All'>;
 
 export const MUSIC_TAGS: MusicTag[] = ['Amapiano', 'Amatshe', 'Jazz', 'RnB'];
 
-const hashSeed = (value: string): number => {
-  let seed = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    seed = (seed * 33 + value.charCodeAt(i)) % 1000003;
-  }
-  return seed;
-};
-
 const normalizeText = (value?: string | null) => String(value || '').toLowerCase();
 
 const hasAny = (text: string, needles: string[]) => needles.some((needle) => text.includes(needle));
 
-export const getMockMusicTags = (place: Place): MusicTag[] => {
+const getMusicTagsFromVenue = (place: Place): MusicTag[] => {
   const bag = normalizeText(
-    [
-      place.name,
-      place.category,
-      place.description,
-      ...(Array.isArray(place.vibe_tags) ? place.vibe_tags : []),
-    ]
+    [...(Array.isArray(place.vibe_tags) ? place.vibe_tags : [])]
       .filter(Boolean)
       .join(' ')
   );
@@ -40,7 +27,7 @@ export const getMockMusicTags = (place: Place): MusicTag[] => {
 
 export const matchesMusicFilter = (place: Place, filter: MusicFilter): boolean => {
   if (filter === 'All') return true;
-  const tags = getMockMusicTags(place);
+  const tags = getMusicTagsFromVenue(place);
   return tags.includes(filter);
 };
 
@@ -51,36 +38,29 @@ export interface VenuePsychSignals {
 }
 
 export const getVenuePsychSignals = (place: Place, areaLabel = 'your side'): VenuePsychSignals => {
-  const seed = hashSeed(`${place.id}:${place.name}`);
-  const musicTags = getMockMusicTags(place);
+  const musicTags = getMusicTagsFromVenue(place);
   const reasons: string[] = [];
   const rotatingSignals: string[] = [];
+  const crowdReports = (place as any).crowd_reports;
 
-  const trending = seed % 3 === 0;
-  const packed = seed % 5 === 0;
-  const friendsHere = (seed % 4 === 0 ? (seed % 3) + 1 : 0);
+  if (musicTags.length > 0) reasons.push(`${musicTags[0]} spot`);
+  if (place.category?.trim()) reasons.push(`${place.category.trim()} in ${areaLabel}`);
 
-  if (trending) {
-    reasons.push(`Trending in ${areaLabel}`);
-    rotatingSignals.push('Trending here!');
+  if (typeof place.price_level === 'number') {
+    if (place.price_level <= 2) reasons.push('Easy on the pocket');
+    if (place.price_level >= 4) reasons.push('Treat-yourself vibe');
   }
 
-  if (musicTags.length > 0) {
-    reasons.push(`${musicTags[0]} spot`);
+  if (typeof crowdReports === 'string') {
+    const crowd = crowdReports.toLowerCase();
+    if (crowd.includes('pack')) rotatingSignals.push("It's happening!");
+    if (crowd.includes('trend')) rotatingSignals.push('Trending here!');
+  } else if (typeof crowdReports === 'number') {
+    if (crowdReports >= 2.6) rotatingSignals.push("It's happening!");
+    if (crowdReports >= 2.1 && crowdReports < 2.6) rotatingSignals.push('Trending here!');
   }
 
-  if (friendsHere > 0) {
-    reasons.push(`${friendsHere} friends here now`);
-  }
-
-  if (packed) {
-    rotatingSignals.push("✨ It's happening!");
-  }
-
-  if (reasons.length === 0) {
-    reasons.push('Easy decision');
-    reasons.push('Solid vibes');
-  }
+  if (reasons.length === 0) reasons.push('Easy decision - solid vibes.');
 
   return {
     reasons: reasons.slice(0, 2),
