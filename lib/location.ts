@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export interface PreciseLocation {
   latitude: number;
@@ -11,6 +11,7 @@ export const usePreciseLocation = (options?: PositionOptions) => {
   const [location, setLocation] = useState<PreciseLocation | null>(null);
   const [loading, setLoading] = useState(true);
   const [strategy, setStrategy] = useState<'precise' | 'fallback'>('fallback');
+  const acquiredRef = useRef(false);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -20,13 +21,16 @@ export const usePreciseLocation = (options?: PositionOptions) => {
 
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
+        if (acquiredRef.current) return;
+        acquiredRef.current = true;
         setLocation({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
-          accuracy: pos.coords.accuracy
+          accuracy: pos.coords.accuracy,
         });
         setLoading(false);
         setStrategy('precise');
+        navigator.geolocation.clearWatch(watchId);
       },
       (err) => {
         console.warn('Geolocation error:', err.message);

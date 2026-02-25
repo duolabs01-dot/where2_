@@ -123,6 +123,17 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [refreshNonce, setRefreshNonce] = useState(0);
   const lastRequestKeyRef = useRef('');
   const isFetchingRef = useRef(false);
+  const hasFetchedOnceRef = useRef(false);
+
+  const categoriesKey = useMemo(
+    () => JSON.stringify([...state.categories].sort()),
+    [state.categories]
+  );
+
+  const secondaryKey = useMemo(
+    () => JSON.stringify(state.secondaryFilters),
+    [state.secondaryFilters]
+  );
 
   const filteredVenues = useMemo(
     () => {
@@ -150,14 +161,16 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     state.radiusMeters < MAX_MAP_RADIUS_M;
 
   useEffect(() => {
-    if (state.origin.lat === 0 || state.origin.lng === 0) return;
+    const originUnset = state.origin.lat === 0 || state.origin.lng === 0;
+    if (!hasFetchedOnceRef.current && originUnset) return;
 
     const requestKey = JSON.stringify({
       lat: state.origin.lat.toFixed(4),
       lng: state.origin.lng.toFixed(4),
       mode: state.mode,
       radius: state.radiusMeters,
-      categories: [...state.categories].sort(),
+      categories: categoriesKey,
+      secondary: secondaryKey,
       query: state.searchQuery.trim().toLowerCase(),
       refreshNonce,
     });
@@ -179,6 +192,7 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }));
 
       try {
+        console.warn('[PERF] discovery fetch');
         const discovery = await runDiscovery({
           supabase,
           userLat: state.origin.lat,
@@ -233,6 +247,7 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       } catch (error) {
         setState((prev) => ({ ...prev, loading: false, refreshTick: prev.refreshTick + 1 }));
       } finally {
+        hasFetchedOnceRef.current = true;
         isFetchingRef.current = false;
       }
     };
@@ -243,7 +258,8 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     state.origin.lng,
     state.mode,
     state.radiusMeters,
-    state.categories,
+    categoriesKey,
+    secondaryKey,
     state.searchQuery,
     refreshNonce,
   ]);

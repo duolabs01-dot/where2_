@@ -130,6 +130,10 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
 
   // Memoize stable preferences string
   const stablePrefsKey = useMemo(() => JSON.stringify(userPreferences), [userPreferences]);
+  const categoriesKey = useMemo(
+    () => JSON.stringify([...filterState.categories].sort()),
+    [filterState.categories]
+  );
 
   const { location, loading: locationLoading, strategy } = usePreciseLocation();
   const { trigger } = useHaptic();
@@ -138,110 +142,116 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
   const vibeSentence = getVibeSentence(); 
   const engine = useMemo(() => new RecommendationEngine(supabase), []);
 
-  const fetchActiveStories = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('place_stories')
-      .select('*, places(name, cover_image)')
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (error) {
-      console.error('Failed to load place stories:', error.message);
-      return;
-    }
-
-    const mappedStories = ((data || []) as StoryRow[]).map((row) => {
-      const placeRef = Array.isArray(row.places) ? row.places[0] : row.places;
-      return {
-        id: row.id,
-        placeId: row.place_id,
-        createdAt: row.created_at,
-        placeName: (placeRef?.name || 'Venue').trim(),
-        coverImage: placeRef?.cover_image || null,
-      };
-    });
-
-    setActiveStories(mappedStories);
-  }, []);
-
-  const fetchFriendActivity = useCallback(async () => {
-    if (!session?.user?.id) {
-      setFriendActivity([]);
-      return;
-    }
-
-    const { data: follows, error: followsError } = await supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', session.user.id)
-      .eq('status', 'approved');
-
-    if (followsError) {
-      console.error('Failed to load follows for friend activity:', followsError.message);
-      setFriendActivity([]);
-      return;
-    }
-
-    const followingIds = (follows || [])
-      .map((row: { following_id?: string | null }) => row.following_id)
-      .filter((value): value is string => Boolean(value));
-
-    if (followingIds.length === 0) {
-      setFriendActivity([]);
-      return;
-    }
-
-    const { data: checkIns, error: checkInsError } = await supabase
-      .from('check_ins')
-      .select('id, user_id, place_id, created_at, profiles(first_name, full_name, username, avatar_url), places(id, name)')
-      .in('user_id', followingIds)
-      .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
-      .limit(20);
-
-    if (checkInsError) {
-      console.error('Failed to load check-ins:', checkInsError.message);
-      setFriendActivity([]);
-      return;
-    }
-
-    const mapped = ((checkIns || []) as FriendActivityRow[]).map((row) => {
-      const profileRef = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-      const placeRef = Array.isArray(row.places) ? row.places[0] : row.places;
-      const friendName = (
-        profileRef?.first_name ||
-        profileRef?.full_name ||
-        profileRef?.username ||
-        'Friend'
-      ).trim();
-
-      return {
-        id: row.id,
-        userId: row.user_id,
-        placeId: row.place_id,
-        createdAt: row.created_at,
-        friendName,
-        avatarUrl: profileRef?.avatar_url || null,
-        placeName: (placeRef?.name || 'a spot').trim(),
-      };
-    });
-
-    setFriendActivity(mapped);
-  }, [session?.user?.id]);
-
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(getCATNow()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    fetchActiveStories();
-  }, [fetchActiveStories]);
+  const fetchStoriesAndFriends = useCallback(
+    async (cancelRef?: { current: boolean }) => {
+      console.warn('[PERF] stories/friends fetch triggered');
+
+      const { data: storyData, error: storyError } = await supabase
+        .from('place_stories')
+        .select('*, places(name, cover_image)')
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (!cancelRef?.current) {
+        if (storyError) {
+          console.error('Failed to load place stories:', storyError.message);
+        } else if (storyData) {
+          const mappedStories = (storyData as StoryRow[]).map((row) => {
+            const placeRef = Array.isArray(row.places) ? row.places[0] : row.places;
+            return {
+              id: row.id,
+              placeId: row.place_id,
+              createdAt: row.created_at,
+              placeName: (placeRef?.name || 'Venue').trim(),
+              coverImage: placeRef?.cover_image || null,
+            };
+          });
+          setActiveStories(mappedStories);
+        }
+      }
+
+      const userId = session?.user?.id;
+      if (!userId) {
+        if (!cancelRef?.current) setFriendActivity([]);
+        return;
+      }
+
+      const { data: follows, error: followsError } = await supabase
+        .from('follows')
+        .select('following_id')
+        .eq('follower_id', userId)
+        .eq('status', 'approved');
+
+      if (cancelRef?.current) return;
+      if (followsError) {
+        console.error('Failed to load follows for friend activity:', followsError.message);
+        setFriendActivity([]);
+        return;
+      }
+
+      const followingIds = (follows || [])
+        .map((row: { following_id?: string | null }) => row.following_id)
+        .filter((value): value is string => Boolean(value));
+
+      if (followingIds.length === 0) {
+        setFriendActivity([]);
+        return;
+      }
+
+      const { data: checkIns, error: checkInsError } = await supabase
+        .from('check_ins')
+        .select('id, user_id, place_id, created_at, profiles(first_name, full_name, username, avatar_url), places(id, name)')
+        .in('user_id', followingIds)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (cancelRef?.current) return;
+      if (checkInsError) {
+        console.error('Failed to load check-ins:', checkInsError.message);
+        setFriendActivity([]);
+        return;
+      }
+
+      const mapped = ((checkIns || []) as FriendActivityRow[]).map((row) => {
+        const profileRef = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+        const placeRef = Array.isArray(row.places) ? row.places[0] : row.places;
+        const friendName = (
+          profileRef?.first_name ||
+          profileRef?.full_name ||
+          profileRef?.username ||
+          'Friend'
+        ).trim();
+
+        return {
+          id: row.id,
+          userId: row.user_id,
+          placeId: row.place_id,
+          createdAt: row.created_at,
+          friendName,
+          avatarUrl: profileRef?.avatar_url || null,
+          placeName: (placeRef?.name || 'a spot').trim(),
+        };
+      });
+
+      setFriendActivity(mapped);
+    },
+    [session?.user?.id]
+  );
 
   useEffect(() => {
-    fetchFriendActivity();
-  }, [fetchFriendActivity]);
+    const cancelRef = { current: false };
+    fetchStoriesAndFriends(cancelRef);
+    return () => {
+      cancelRef.current = true;
+    };
+  }, [fetchStoriesAndFriends]);
 
   useEffect(() => {
     if (!locationLoading) {
@@ -278,7 +288,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
         lat: lat.toFixed(4), lng: lng.toFixed(4),
         radius: filterState.radiusMeters,
         openNow: filterState.openNowOnly,
-        categories: [...filterState.categories].sort(),
+        categories: categoriesKey,
         mode: filterState.mode,
         musicVibe: filterState.musicVibe,
         query: currentQuery.trim().toLowerCase(),
@@ -299,6 +309,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
     const relevantPrefs = [...new Set([...savedCats, ...learnedVibes])];
 
     try {
+        console.warn('[PERF] recommendations fetch triggered');
         // 1. Fetch Candidates (Fetch Wide Pool if OpenNow is on, to allow adaptive shrink/expand)
         // If OpenNow is true, we ignore the manual radius filter during fetch to get enough candidates for adaptive logic.
         // Otherwise use the manual filter.
@@ -395,7 +406,19 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
         if (scrollTopRef.current < 20) setIsCollapsed(false);
         isFetchingRef.current = false;
     }
-  }, [filterState, exploreState.origin, engine, stablePrefsKey, searchQuery]); 
+  }, [
+    categoriesKey,
+    engine,
+    exploreState.origin.lat,
+    exploreState.origin.lng,
+    exploreState.origin.mode,
+    filterState.mode,
+    filterState.openNowOnly,
+    filterState.radiusMeters,
+    filterState.musicVibe,
+    stablePrefsKey,
+    searchQuery,
+  ]); 
 
   // Debounced auto-fetch on filter change
   useEffect(() => {
@@ -404,7 +427,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
         fetchRecommendations();
      }, 400);
      return () => clearTimeout(timeoutId);
-  }, [filterState.radiusMeters, filterState.categories, filterState.openNowOnly, filterState.mode, filterState.musicVibe, exploreState.origin, stablePrefsKey]); 
+  }, [fetchRecommendations]); 
 
   const handleSearch = (query: string) => {
       setSearchQuery(query);
@@ -422,8 +445,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
       setIsCollapsed(false); 
       await Promise.all([
         fetchRecommendations(undefined, true),
-        fetchActiveStories(),
-        fetchFriendActivity(),
+        fetchStoriesAndFriends(),
       ]);
   };
 
