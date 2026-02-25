@@ -18,6 +18,8 @@ import { RadiusExpansionBanner } from './RadiusExpansionBanner';
 import { showToast } from '../utils/toast';
 import { useHaptic } from '../utils/animations';
 import { useTravelSheet } from '../hooks/useTravelSheet';
+import { FilterBar } from './FilterBar';
+import { applySecondaryFilters } from '../lib/secondaryFilters';
 import {
   MAX_EXPLORE_RADIUS_M,
   PRIMARY_WALK_RADIUS_M,
@@ -40,7 +42,18 @@ const EXPLORE_CATEGORIES = ['All', 'Nightlife', 'Dining', 'Cafe', 'Outdoors', 'A
 
 export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, onSwitchToMap, onCityChange, initialIntent, onRequireAuth }) => {
   const { state: exploreState, setOrigin, setFocusedPlace } = useExploreState();
-  const { state: filterState, setRadiusMeters, setOpenNowOnly, toggleCategory, setCategories, setMode, resetFilters } = useFilters();
+  const {
+    state: filterState,
+    setRadiusMeters,
+    setOpenNowOnly,
+    setTonightOnly,
+    toggleCategory,
+    setCategories,
+    setMode,
+    resetFilters,
+    cycleCrowd,
+    cyclePriceVibe,
+  } = useFilters();
 
   const [venues, setVenues] = useState<Venue[]>([]);
   const [scores, setScores] = useState<VenueScore[]>([]);
@@ -57,6 +70,16 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
   const [expandedCount, setExpandedCount] = useState(0);
   const [expansionBannerCopy, setExpansionBannerCopy] = useState<string | undefined>(undefined);
   const [laterModeCopy, setLaterModeCopy] = useState<string | undefined>(undefined);
+  const [secondaryFilterUi, setSecondaryFilterUi] =
+    useState<{
+      hasLoadedFirstResults: boolean;
+      showRefinements: boolean;
+      hasHydratedFilters: boolean;
+    }>({
+      hasLoadedFirstResults: false,
+      showRefinements: false,
+      hasHydratedFilters: false,
+    });
 
   // Guards
   const lastRequestKeyRef = useRef<string>('');
@@ -171,6 +194,11 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
         showToast(e.message || "Failed to load venues", 'error');
     } finally {
         setLoading(false);
+        setSecondaryFilterUi((prev) =>
+          prev.hasLoadedFirstResults
+            ? prev
+            : { hasLoadedFirstResults: true, showRefinements: true, hasHydratedFilters: true }
+        );
         setRefreshTick(prev => prev + 1); // Triggers only Pulse animation, not re-fetch
         if (scrollTopRef.current < 20) setIsCollapsed(false);
         isFetchingRef.current = false;
@@ -213,6 +241,27 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
       if (onSwitchToMap) onSwitchToMap();
   });
 
+  const visibleVenues = useMemo(
+    () =>
+      applySecondaryFilters(venues, {
+        tonightOnly: filterState.tonightOnly,
+        crowd: filterState.crowd,
+        priceVibe: filterState.priceVibe,
+      }),
+    [venues, filterState.tonightOnly, filterState.crowd, filterState.priceVibe]
+  );
+
+  const visibleScores = useMemo(() => {
+    const ids = new Set(visibleVenues.map((venue) => venue.id));
+    return scores.filter((score) => ids.has(score.venueId));
+  }, [scores, visibleVenues]);
+
+  const showSecondaryFilters =
+    secondaryFilterUi.hasLoadedFirstResults &&
+    secondaryFilterUi.showRefinements &&
+    !loading &&
+    venues.length > 0;
+
   const shouldShowUpdated = (currentTime.getTime() - lastUpdated.getTime()) < 15 * 60 * 1000;
   
   return (
@@ -233,7 +282,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
          activeTime={filterState.openNowOnly ? 'now' : 'any'}
          onOpenLocationSheet={() => setShowSettingsSheet(true)}
          onSearch={handleSearch}
-         resultCount={venues.length}
+         resultCount={visibleVenues.length}
          refreshTick={refreshTick}
          isCollapsed={isCollapsed}
          activeCategories={filterState.categories}
@@ -324,12 +373,35 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
             </div>
         </div>
 
+        <FilterBar
+          visible={showSecondaryFilters}
+          tonightOnly={filterState.tonightOnly}
+          crowd={filterState.crowd}
+          priceVibe={filterState.priceVibe}
+          onToggleTonight={() => {
+            trigger();
+            const nextValue = !filterState.tonightOnly;
+            setTonightOnly(nextValue);
+            if (nextValue && filterState.openNowOnly) {
+              setOpenNowOnly(false);
+            }
+          }}
+          onCycleCrowd={() => {
+            trigger();
+            cycleCrowd();
+          }}
+          onCyclePriceVibe={() => {
+            trigger();
+            cyclePriceVibe();
+          }}
+        />
+
         <div className="px-4 space-y-6 pb-nav-safe">
             {loading ? (
                 <div className="flex flex-col gap-4 pt-2">
                   <CardSkeleton /> <CardSkeleton /> <CardSkeleton />
                 </div>
-            ) : venues.length > 0 ? (
+            ) : visibleVenues.length > 0 ? (
                 <>
                     {autoSwitchedToLater && (
                         <div className="text-center py-4 px-6 bg-white/5 rounded-2xl border border-white/5 mb-6">
@@ -346,8 +418,8 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
                             </div>
                         </div>
                     )}
-                    {venues.map((item) => {
-                        const s = scores.find(sc => sc.venueId === item.id);
+                    {visibleVenues.map((item) => {
+                        const s = visibleScores.find(sc => sc.venueId === item.id);
                         const seed = parseInt(item.id.replace(/\D/g, '') || '0', 10);
                         const mockSaved = 12 + (seed % 80);
                         const mockFriends = (seed % 5) > 3 ? (seed % 3) + 1 : 0;

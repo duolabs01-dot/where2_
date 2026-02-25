@@ -14,6 +14,7 @@ import { checkTimeFilter, isPlaceOpenNow } from '../lib/timeFilter';
 import { useExploreState } from '../lib/exploreState';
 import { useFilters } from '../lib/filtersStore';
 import { matchesCategoryFilters } from '../lib/categoryFilter';
+import { applySecondaryFilters } from '../lib/secondaryFilters';
 import { SmartFilterBar } from './SmartFilterBar';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useHaptic } from '../utils/animations';
@@ -438,7 +439,7 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
   };
 
   // --- Filter Logic ---
-  const filteredPlaces = useMemo(() => {
+  const baseFilteredPlaces = useMemo(() => {
     const timeFilter = filterState.openNowOnly ? 'now' : 'any';
     const query = searchQuery.toLowerCase().trim();
 
@@ -460,7 +461,24 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
 
         return checkTimeFilter(p, timeFilter);
     });
-  }, [places, filterState, location, searchQuery]);
+  }, [
+    places,
+    filterState.radiusMeters,
+    filterState.categories,
+    filterState.openNowOnly,
+    location,
+    searchQuery,
+  ]);
+
+  const filteredPlaces = useMemo(
+    () =>
+      applySecondaryFilters(baseFilteredPlaces, {
+        tonightOnly: filterState.tonightOnly,
+        crowd: filterState.crowd,
+        priceVibe: filterState.priceVibe,
+      }),
+    [baseFilteredPlaces, filterState.tonightOnly, filterState.crowd, filterState.priceVibe]
+  );
 
   const activeRadiusIndex = MAP_RADIUS_STEPS.indexOf(filterState.radiusMeters);
 
