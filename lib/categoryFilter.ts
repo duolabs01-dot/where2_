@@ -7,7 +7,7 @@ type CategoryLike = {
   created_at?: string | Date | null;
 };
 
-const CATEGORY_ALIASES: Record<string, string[]> = {
+export const CATEGORY_ALIASES: Record<string, string[]> = {
   nightlife: ['nightlife', 'bar', 'club', 'lounge', 'pub', 'amapiano'],
   dining: ['dining', 'restaurant', 'food', 'eat', 'kitchen', 'grill', 'steak'],
   cafe: ['cafe', 'cafes', 'coffee', 'espresso', 'latte', 'brunch'],

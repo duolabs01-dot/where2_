@@ -134,6 +134,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
     () => JSON.stringify([...filterState.categories].sort()),
     [filterState.categories]
   );
+  const activeCategoryCount = filterState.categories.length;
 
   const { location, loading: locationLoading, strategy } = usePreciseLocation();
   const { trigger } = useHaptic();
@@ -592,6 +593,15 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
             />
         </div>
 
+        {activeCategoryCount >= 2 && (
+          <div className="px-4 -mt-1 mb-1 text-[11px] text-gray-300 flex items-center gap-2">
+            <span className="font-bold">Filters</span>
+            <span className="px-2 py-0.5 rounded-full bg-white/10 text-white border border-white/15 text-[10px]">
+              {activeCategoryCount} active
+            </span>
+          </div>
+        )}
+
         {/* Categories Row */}
         <div className="relative w-full mb-2 group">
             <div className="absolute left-0 top-0 bottom-2 w-8 bg-gradient-to-r from-background to-transparent z-20 pointer-events-none" />
@@ -603,7 +613,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
                 {EXPLORE_CATEGORIES.map(cat => {
                     const isAll = cat === 'All';
                     const isActive = isAll 
-                        ? filterState.categories.length === 0 || (filterState.categories.length === 1 && filterState.categories[0] === 'All')
+                        ? filterState.categories.length === 0
                         : filterState.categories.includes(cat);
 
                     return (
@@ -615,9 +625,13 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
                                 e.stopPropagation();
                                 trigger();
                                 if (isAll) {
-                                    setCategories([]); 
+                                    setCategories([]);
                                 } else {
-                                    toggleCategory(cat);
+                                    // remove "All" by ensuring empty array isn't kept
+                                    const next = filterState.categories.includes(cat)
+                                      ? filterState.categories.filter((c) => c !== cat)
+                                      : [...filterState.categories.filter((c) => c !== 'All'), cat];
+                                    setCategories(next);
                                 }
                             }}
                             className={`relative shrink-0 flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold border transition-all duration-300 whitespace-nowrap z-10 ${isActive ? 'bg-white text-black border-white shadow-[0_0_20px_rgba(159,80,255,0.6)]' : 'bg-white/5 backdrop-blur-xl text-gray-400 border-white/10 hover:bg-white/10 hover:text-white'}`}

@@ -1,7 +1,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { isPlaceOpenNow } from './timeFilter';
-import { matchesCategoryFilters } from './categoryFilter';
+import { matchesCategoryFilters, CATEGORY_ALIASES } from './categoryFilter';
 
 export interface Venue {
     id: string;
@@ -136,7 +136,15 @@ export class RecommendationEngine {
                 const openBonus = openStatus.is_open ? 0.8 : 0;
                 const base = 0.3;
 
-                const score = base + openBonus + vibeScore + distanceScore;
+                // Multi-category bonus
+                const selectedNormalized = categories.map((c: string) => c.toLowerCase());
+                const venueCategoryText = [v.category, ...(v.vibe_tags || [])].join(' ').toLowerCase();
+                const matchCount = selectedNormalized.filter((cat: string) =>
+                    (CATEGORY_ALIASES[cat] || [cat]).some((kw) => venueCategoryText.includes(kw))
+                ).length;
+                const multiCategoryBonus = matchCount > 1 ? (matchCount - 1) * 0.3 : 0;
+
+                const score = base + openBonus + vibeScore + distanceScore + multiCategoryBonus;
 
                 const distanceLabel =
                     distanceNumeric > 0

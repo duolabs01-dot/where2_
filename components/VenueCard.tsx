@@ -41,30 +41,35 @@ export const VenueCard: React.FC<VenueCardProps> = ({
     let cancelled = false;
 
     const fetchCrowdConsensus = async () => {
-      const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-      const { data, error } = await supabase
-        .from('crowd_reports')
-        .select('signal, created_at')
-        .eq('place_id', venue.id)
-        .gt('created_at', since)
-        .limit(500);
+      try {
+        const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+          .from('crowd_reports')
+          .select('signal, created_at')
+          .eq('place_id', venue.id)
+          .gt('created_at', since)
+          .limit(500);
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (error || !data || data.length === 0) {
+        if (error || !data || data.length === 0) {
+          setCrowdConsensus(null);
+          return;
+        }
+
+        const counts: Record<CrowdSignal, number> = { quiet: 0, vibes: 0, packed: 0 };
+        for (const row of data) {
+          const signal = row.signal as CrowdSignal;
+          if (signal in counts) counts[signal] += 1;
+        }
+
+        const sorted = (Object.keys(counts) as CrowdSignal[]).sort((a, b) => counts[b] - counts[a]);
+        const winner = sorted[0];
+        setCrowdConsensus(counts[winner] > 0 ? winner : null);
+      } catch (_err) {
+        if (cancelled) return;
         setCrowdConsensus(null);
-        return;
       }
-
-      const counts: Record<CrowdSignal, number> = { quiet: 0, vibes: 0, packed: 0 };
-      for (const row of data) {
-        const signal = row.signal as CrowdSignal;
-        if (signal in counts) counts[signal] += 1;
-      }
-
-      const sorted = (Object.keys(counts) as CrowdSignal[]).sort((a, b) => counts[b] - counts[a]);
-      const winner = sorted[0];
-      setCrowdConsensus(counts[winner] > 0 ? winner : null);
     };
 
     fetchCrowdConsensus();
