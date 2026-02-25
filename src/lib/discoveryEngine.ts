@@ -7,9 +7,10 @@ import { isOpenNowJhb } from './timeJhb';
 export const PRIMARY_WALK_RADIUS_M = 600; // 8-min walk @ 75m/min
 export const RIDE_EXPANSION_RADIUS_M = 1500; // ~5-min ride
 export const MAX_EXPLORE_RADIUS_M = 30000; // 30km cap
+export const MAX_MAP_RADIUS_M = 100000; // 100km cap (map opt-in only)
 const MIN_OPEN_RESULTS = 3;
 
-const RADIUS_STEPS = [600, 1500, 3000, 6000, 12000, 20000, 30000];
+const BASE_RADIUS_STEPS = [600, 1500, 3000, 6000, 12000, 20000, 30000];
 const EXACT_RIDE_BANNER = 'Nothing perfect nearby — expanding to a 5-min ride ';
 
 type DiscoverMode = 'right_now' | 'later';
@@ -37,6 +38,7 @@ interface DiscoveryParams {
   categories?: string[];
   searchQuery?: string;
   fallbackRadius?: number;
+  maxRadiusMeters?: number;
 }
 
 const normalize = (value?: string | null) =>
@@ -66,6 +68,23 @@ const withDefaults = (place: Place): Place => {
   return { ...place, category: safeCategory };
 };
 
+const buildRadiusSteps = (maxRadiusMeters: number): number[] => {
+  const capped = Math.max(PRIMARY_WALK_RADIUS_M, maxRadiusMeters);
+  const steps = [...BASE_RADIUS_STEPS.filter((step) => step <= capped)];
+
+  if (capped > MAX_EXPLORE_RADIUS_M) {
+    for (let next = MAX_EXPLORE_RADIUS_M + 10000; next <= capped; next += 10000) {
+      steps.push(next);
+    }
+  }
+
+  if (!steps.includes(capped)) {
+    steps.push(capped);
+  }
+
+  return steps;
+};
+
 export const runDiscovery = async ({
   supabase,
   userLat,
@@ -74,8 +93,11 @@ export const runDiscovery = async ({
   categories = [],
   searchQuery = '',
   fallbackRadius = PRIMARY_WALK_RADIUS_M,
+  maxRadiusMeters = MAX_EXPLORE_RADIUS_M,
 }: DiscoveryParams): Promise<DiscoveryResult> => {
   const startedAt = Date.now();
+  const maxRadiusCap = Math.max(PRIMARY_WALK_RADIUS_M, Math.min(MAX_MAP_RADIUS_M, maxRadiusMeters));
+  const radiusSteps = buildRadiusSteps(maxRadiusCap);
 
   const { data, error } = await supabase.from('places').select('*').limit(500);
   if (error) {
@@ -97,11 +119,11 @@ export const runDiscovery = async ({
       const open_now = isOpenNowJhb(place.opening_time, place.closing_time);
       return { ...place, distanceNumeric, open_now };
     })
-    .filter((place) => place.distanceNumeric <= MAX_EXPLORE_RADIUS_M)
+    .filter((place) => place.distanceNumeric <= maxRadiusCap)
     .sort((a, b) => a.distanceNumeric - b.distanceNumeric);
 
   if (!openNowOnly) {
-    const radius = Math.max(PRIMARY_WALK_RADIUS_M, Math.min(MAX_EXPLORE_RADIUS_M, fallbackRadius));
+    const radius = Math.max(PRIMARY_WALK_RADIUS_M, Math.min(maxRadiusCap, fallbackRadius));
     const venues = prepared.filter((place) => place.distanceNumeric <= radius);
     return {
       venues,
@@ -116,7 +138,7 @@ export const runDiscovery = async ({
 
   let usedRadius = PRIMARY_WALK_RADIUS_M;
   let expansionCount = 0;
-  for (const radius of RADIUS_STEPS) {
+  for (const radius of radiusSteps) {
     const count = openOnly.filter((place) => place.distanceNumeric <= radius).length;
     usedRadius = radius;
     if (radius > PRIMARY_WALK_RADIUS_M) expansionCount++;
@@ -140,8 +162,8 @@ export const runDiscovery = async ({
   return {
     venues: closestForLater,
     mode: 'later',
-    usedRadius: MAX_EXPLORE_RADIUS_M,
-    expansionCount: RADIUS_STEPS.length - 1,
+    usedRadius: maxRadiusCap,
+    expansionCount: radiusSteps.length - 1,
     bannerMessage: EXACT_RIDE_BANNER,
     laterMessage: "Aweh, it's not really happening close by right now — here are the nearest spots for later.",
     elapsedMs: Date.now() - startedAt,

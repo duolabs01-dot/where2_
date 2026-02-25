@@ -1,30 +1,18 @@
-
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-
-interface ExploreState {
-    origin: { lat: number; lng: number; mode: 'gps' | 'fallback' | 'preferences' };
-    focusedPlaceId?: string;
-}
-
-const ExploreContext = createContext<any>(null);
+import React, { ReactNode } from 'react';
+import { DiscoveryProvider, useDiscoveryContext } from '../src/state/DiscoveryContext';
 
 export const ExploreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const [state, setState] = useState<ExploreState>({
-        origin: { lat: 0, lng: 0, mode: 'gps' },
-        focusedPlaceId: undefined
-    });
-
-    const setOrigin = (lat: number, lng: number, mode: 'gps' | 'fallback' | 'preferences') => 
-        setState(prev => ({ ...prev, origin: { lat, lng, mode } }));
-    
-    const setFocusedPlace = (id?: string) => 
-        setState(prev => ({ ...prev, focusedPlaceId: id }));
-
-    return (
-        <ExploreContext.Provider value={{ state, setOrigin, setFocusedPlace }}>
-            {children}
-        </ExploreContext.Provider>
-    );
+  return <DiscoveryProvider>{children}</DiscoveryProvider>;
 };
 
-export const useExploreState = () => useContext(ExploreContext);
+export const useExploreState = () => {
+  const { state, setOrigin, setFocusedPlace } = useDiscoveryContext();
+  return {
+    state: {
+      origin: state.origin,
+      focusedPlaceId: state.focusedPlaceId,
+    },
+    setOrigin,
+    setFocusedPlace,
+  };
+};

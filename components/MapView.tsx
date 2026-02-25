@@ -5,22 +5,18 @@ import L from 'leaflet';
 import Supercluster from 'supercluster';
 import { GlassCard, PageWrapper, OptimizedImage, GlassSheet } from './Layouts';
 import { usePreciseLocation, PreciseLocation } from '../lib/location';
-import { supabase } from '../supabase';
 import { Place } from '../types';
-import { enrichPlacesWithImages } from '../utils/imageEnricher';
 import { PlaceDetailSheet } from './PlaceDetailSheet';
 import { showToast } from '../utils/toast';
-import { checkTimeFilter, isPlaceOpenNow } from '../lib/timeFilter';
-import { useExploreState } from '../lib/exploreState';
-import { useFilters } from '../lib/filtersStore';
-import { matchesCategoryFilters } from '../lib/categoryFilter';
-import { applySecondaryFilters } from '../lib/secondaryFilters';
+import { isPlaceOpenNow } from '../lib/timeFilter';
 import { SmartFilterBar } from './SmartFilterBar';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useHaptic } from '../utils/animations';
 import { TransportModeSheet } from './TransportModeSheet';
 import { getPlaceImageUrl } from '../utils/placeholders';
 import { themeTokens } from './ThemeProvider';
+import { useDiscoveryContext } from '../src/state/DiscoveryContext';
+import { MAX_EXPLORE_RADIUS_M, PRIMARY_WALK_RADIUS_M } from '../src/lib/discoveryEngine';
 
 const MarkerCompat = Marker as any;
 const MapContainerCompat = MapContainer as any;
@@ -28,8 +24,7 @@ const TileLayerCompat = TileLayer as any;
 const CircleCompat = Circle as any;
 
 // --- Constants ---
-const CACHE_KEY = 'where2_places_cache';
-const MAP_RADIUS_STEPS = [600, 1500, 2000, 5000, 10000, 30000, 50000, 100000]; // Up to 100km
+const MAP_RADIUS_STEPS = [600, 1500, 3000, 6000, 12000, 20000, 30000];
 
 // --- Distance Helper ---
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -325,80 +320,63 @@ const MapPreviewCard: React.FC<{
 
 export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: () => void) => void }> = ({ userCity = 'Johannesburg', onRequireAuth }) => {
   const [map, setMap] = useState<L.Map | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Use Global Filter Store
-  const { 
-      state: filterState, 
-      setRadiusMeters, 
-      setOpenNowOnly, 
-      resetFilters 
-  } = useFilters();
+  const {
+    state: discoveryState,
+    filteredVenues,
+    setOrigin,
+    setFocusedPlace,
+    setRadiusMeters,
+    setOpenNowOnly,
+    setSearchQuery,
+    resetFilters,
+    expandMapRadiusByTenKm,
+    canExpandMapRadius,
+  } = useDiscoveryContext();
+
+  const filterState = useMemo(
+    () => ({
+      radiusMeters: discoveryState.radiusMeters,
+      openNowOnly: discoveryState.mode === 'RIGHT_NOW',
+      categories: discoveryState.categories,
+    }),
+    [discoveryState]
+  );
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [showFullDetails, setShowFullDetails] = useState(false); // Controls full sheet
   const [transportPlace, setTransportPlace] = useState<Place | null>(null); // Controls transport sheet
-  
-  const [places, setPlaces] = useState<Place[]>([]);
-  const [isLoadingPlaces, setIsLoadingPlaces] = useState(true);
   const [recenterTrigger, setRecenterTrigger] = useState(0);
-  
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
-  const [refreshTick, setRefreshTick] = useState(0);
-
-  const { location } = usePreciseLocation({
+  const { location, loading: locationLoading } = usePreciseLocation({
     enableHighAccuracy: true,
     timeout: 10000,
-    maximumAge: 0
+    maximumAge: 0,
   });
-  
   const { trigger } = useHaptic();
 
-  const { state: exploreState, setFocusedPlace } = useExploreState();
-
   useEffect(() => {
-      setRefreshTick(prev => prev + 1);
-  }, [filterState.radiusMeters, filterState.openNowOnly, places.length]);
-
-  useEffect(() => {
-    const fetchPlaces = async () => {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        setPlaces(JSON.parse(cached));
-        setIsLoadingPlaces(false);
+    if (!locationLoading) {
+      if (location) {
+        setOrigin(location.latitude, location.longitude, 'gps');
+      } else if (discoveryState.origin.lat === 0 || discoveryState.origin.lng === 0) {
+        setOrigin(-26.2041, 28.0473, 'fallback');
       }
-
-      try {
-        const { data, error } = await supabase.from('places').select('*');
-        if (error) throw error;
-        
-        if (data) {
-          const enriched = await enrichPlacesWithImages(data as Place[]);
-          setPlaces(enriched);
-          localStorage.setItem(CACHE_KEY, JSON.stringify(enriched));
-        }
-      } catch (err) {
-        console.error('Error fetching places:', err);
-      } finally {
-        setIsLoadingPlaces(false);
-      }
-    };
-    fetchPlaces();
-  }, []);
-
-  useEffect(() => {
-    if (exploreState.focusedPlaceId && !isLoadingPlaces && places.length > 0 && map) {
-        const target = places.find(p => p.id === exploreState.focusedPlaceId);
-        if (target && typeof target.latitude === 'number' && typeof target.longitude === 'number') {
-            map.flyTo([target.latitude, target.longitude], 16, {
-                animate: true,
-                duration: 1.5
-            });
-            setSelectedPlace(target);
-            setFocusedPlace(undefined);
-        }
     }
-  }, [exploreState.focusedPlaceId, places, isLoadingPlaces, map]);
+  }, [location, locationLoading, discoveryState.origin.lat, discoveryState.origin.lng, setOrigin]);
+
+  useEffect(() => {
+    if (discoveryState.focusedPlaceId && map) {
+      const target = discoveryState.venues.find((p) => p.id === discoveryState.focusedPlaceId);
+      if (target && typeof target.latitude === 'number' && typeof target.longitude === 'number') {
+        map.flyTo([target.latitude, target.longitude], 16, {
+          animate: true,
+          duration: 1.5,
+        });
+        setSelectedPlace(target);
+        setFocusedPlace(undefined);
+      }
+    }
+  }, [discoveryState.focusedPlaceId, discoveryState.venues, map, setFocusedPlace]);
 
   const handleRecenter = () => {
     trigger();
@@ -437,52 +415,8 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
       }
       setTransportPlace(null);
   };
-
-  // --- Filter Logic ---
-  const baseFilteredPlaces = useMemo(() => {
-    const timeFilter = filterState.openNowOnly ? 'now' : 'any';
-    const query = searchQuery.toLowerCase().trim();
-
-    return places.filter(p => {
-        if (location && typeof p.latitude === 'number' && typeof p.longitude === 'number') {
-            const dist = calculateDistance(location.latitude, location.longitude, p.latitude, p.longitude);
-            if ((dist * 1000) > filterState.radiusMeters) return false;
-        }
-
-        if (!matchesCategoryFilters(p, filterState.categories)) {
-             return false;
-        }
-
-        if (query) {
-            const matchesName = p.name.toLowerCase().includes(query);
-            const matchesCat = p.category?.toLowerCase().includes(query);
-            if (!matchesName && !matchesCat) return false;
-        }
-
-        return checkTimeFilter(p, timeFilter);
-    });
-  }, [
-    places,
-    filterState.radiusMeters,
-    filterState.categories,
-    filterState.openNowOnly,
-    location,
-    searchQuery,
-  ]);
-
-  const filteredPlaces = useMemo(
-    () =>
-      applySecondaryFilters(baseFilteredPlaces, {
-        tonightOnly: filterState.tonightOnly,
-        crowd: filterState.crowd,
-        priceVibe: filterState.priceVibe,
-      }),
-    [baseFilteredPlaces, filterState.tonightOnly, filterState.crowd, filterState.priceVibe]
-  );
-
+  const filteredPlaces = filteredVenues;
   const activeRadiusIndex = MAP_RADIUS_STEPS.indexOf(filterState.radiusMeters);
-
-  // Find closest step if not exact match (handle legacy values)
   const safeRadiusIndex = activeRadiusIndex >= 0 ? activeRadiusIndex : 0;
 
   return (
@@ -498,10 +432,10 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
              onOpenLocationSheet={() => setShowSettingsSheet(true)}
              onSearch={setSearchQuery}
              resultCount={filteredPlaces.length}
-             refreshTick={refreshTick}
+             refreshTick={discoveryState.refreshTick}
              isCollapsed={false}
              activeCategories={filterState.categories}
-             isDefaultRadius={filterState.radiusMeters === 600}
+             isDefaultRadius={filterState.radiusMeters === PRIMARY_WALK_RADIUS_M}
           />
       </div>
 
@@ -649,7 +583,7 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
                                         {MAP_RADIUS_STEPS.map((r, i) => (
                                             <button 
                                                 key={r}
-                                                onClick={() => setRadiusMeters(r)}
+                                                onClick={() => setRadiusMeters(r, 'explore')}
                                                 className={`absolute top-1/2 -translate-y-1/2 w-6 h-6 rounded-full border-2 transition-all duration-300 z-10 ${
                                                     r === filterState.radiusMeters 
                                                     ? 'bg-primary border-white scale-110 shadow-[0_0_10px_rgba(var(--color-primary),0.5)]' 
@@ -661,7 +595,7 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
                                     </div>
                                     <div className="flex justify-between text-[10px] text-gray-500 font-mono mt-2">
                                         <span>600m</span>
-                                        <span>100km</span>
+                                        <span>30km</span>
                                     </div>
                                 </div>
 
@@ -694,6 +628,30 @@ export const MapView: React.FC<{ userCity?: string; onRequireAuth?: (action?: ()
                                         </div>
                                         {!filterState.openNowOnly && <span className="material-symbols-outlined text-primary">check_circle</span>}
                                     </button>
+
+                                    {canExpandMapRadius && (
+                                        <button
+                                            onClick={() => expandMapRadiusByTenKm()}
+                                            className="w-full flex justify-between items-center p-4 rounded-xl border border-primary/40 bg-primary/10 text-white hover:bg-primary/20 transition-colors"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <span className="material-symbols-outlined">add_road</span>
+                                                <div className="text-left">
+                                                    <p className="font-bold text-sm">No open spots nearby</p>
+                                                    <p className="text-xs opacity-80">Expand by +10km (up to 100km)</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-xs font-bold">
+                                                {(Math.min(100000, filterState.radiusMeters + 10000) / 1000).toFixed(0)}km
+                                            </span>
+                                        </button>
+                                    )}
+
+                                    {discoveryState.radiusMeters > MAX_EXPLORE_RADIUS_M && (
+                                        <p className="text-[11px] text-gray-400 px-1">
+                                            Map radius expanded: {(discoveryState.radiusMeters / 1000).toFixed(0)}km
+                                        </p>
+                                    )}
 
                                     <button 
                                         onClick={() => resetFilters()}
