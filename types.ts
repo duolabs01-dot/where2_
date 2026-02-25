@@ -51,6 +51,17 @@ export interface PlaceMedia {
   is_cover?: boolean;
 }
 
+export interface PlaceStory {
+  id: string;
+  place_id: string;
+  posted_by: string;
+  media_url?: string | null;
+  caption?: string | null;
+  vibe_tag?: string | null;
+  created_at: string;
+  expires_at: string;
+}
+
 export interface Review {
   id: string;
   place_id: string;
