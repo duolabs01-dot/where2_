@@ -2,11 +2,12 @@ import React, { ReactNode } from 'react';
 import {
   CrowdFilter,
   FilterMode,
+  MusicFilter,
   PriceVibeFilter,
   useDiscoveryContext,
 } from '../src/state/DiscoveryContext';
 
-export type { CrowdFilter, FilterMode, PriceVibeFilter };
+export type { CrowdFilter, FilterMode, MusicFilter, PriceVibeFilter };
 
 export const FiltersProvider: React.FC<{ children: ReactNode }> = ({ children }) => <>{children}</>;
 
@@ -21,6 +22,7 @@ export const useFilters = () => {
     setTonightOnly,
     setCrowd,
     setPriceVibe,
+    setMusicFilter,
     cycleCrowd,
     cyclePriceVibe,
     toggleCategory,
@@ -37,6 +39,7 @@ export const useFilters = () => {
       tonightOnly: state.mode === 'TONIGHT' || state.secondaryFilters.tonightOnly,
       crowd: state.secondaryFilters.crowd as CrowdFilter,
       priceVibe: state.secondaryFilters.priceVibe as PriceVibeFilter,
+      musicFilter: state.secondaryFilters.music as MusicFilter,
       lastExpansionReason: state.lastExpansionReason,
     },
     setMode: setGroupMode,
@@ -48,6 +51,7 @@ export const useFilters = () => {
     setTonightOnly,
     setCrowd,
     setPriceVibe,
+    setMusicFilter,
     cycleCrowd,
     cyclePriceVibe,
     toggleCategory,

@@ -44,6 +44,7 @@ export const Discover: React.FC<DiscoverProps> = ({
     setRadiusMeters,
     setOpenNowOnly,
     setTonightOnly,
+    setMusicFilter,
     setCategories,
     toggleCategory,
     cycleCrowd,
@@ -96,6 +97,7 @@ export const Discover: React.FC<DiscoverProps> = ({
       tonightOnly: discoveryState.mode === 'TONIGHT' || discoveryState.secondaryFilters.tonightOnly,
       crowd: discoveryState.secondaryFilters.crowd,
       priceVibe: discoveryState.secondaryFilters.priceVibe,
+      musicFilter: discoveryState.secondaryFilters.music,
     }),
     [discoveryState]
   );
@@ -256,6 +258,7 @@ export const Discover: React.FC<DiscoverProps> = ({
           tonightOnly={filterState.tonightOnly}
           crowd={filterState.crowd}
           priceVibe={filterState.priceVibe}
+          musicFilter={filterState.musicFilter}
           onToggleTonight={() => {
             trigger();
             setTonightOnly(!filterState.tonightOnly);
@@ -267,6 +270,10 @@ export const Discover: React.FC<DiscoverProps> = ({
           onCyclePriceVibe={() => {
             trigger();
             cyclePriceVibe();
+          }}
+          onSelectMusic={(value) => {
+            trigger();
+            setMusicFilter(value);
           }}
         />
 

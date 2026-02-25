@@ -1,14 +1,16 @@
 import React from 'react';
-import type { CrowdFilter, PriceVibeFilter } from '../lib/filtersStore';
+import type { CrowdFilter, MusicFilter, PriceVibeFilter } from '../lib/filtersStore';
 
 interface FilterBarProps {
   visible: boolean;
   tonightOnly: boolean;
   crowd: CrowdFilter;
   priceVibe: PriceVibeFilter;
+  musicFilter: MusicFilter;
   onToggleTonight: () => void;
   onCycleCrowd: () => void;
   onCyclePriceVibe: () => void;
+  onSelectMusic: (value: MusicFilter) => void;
 }
 
 const crowdLabel: Record<CrowdFilter, string> = {
@@ -30,9 +32,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   tonightOnly,
   crowd,
   priceVibe,
+  musicFilter,
   onToggleTonight,
   onCycleCrowd,
   onCyclePriceVibe,
+  onSelectMusic,
 }) => {
   if (!visible) return null;
 
@@ -74,6 +78,26 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           {priceLabel[priceVibe]}
         </button>
         <div className="w-4 shrink-0" />
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto no-scrollbar px-4 pb-1" style={{ touchAction: 'pan-x' }}>
+        {(['All', 'Amapiano', 'Amatshe', 'Jazz', 'RnB'] as MusicFilter[]).map((option) => {
+          const active = musicFilter === option;
+          return (
+            <button
+              key={option}
+              onClick={() => onSelectMusic(option)}
+              className={`shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all duration-300 whitespace-nowrap ${
+                active
+                  ? 'bg-white text-black border-white'
+                  : 'bg-white/5 backdrop-blur-xl text-gray-400 border-white/10 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              {option}
+            </button>
+          );
+        })}
+        <div className="w-2 shrink-0" />
       </div>
     </div>
   );

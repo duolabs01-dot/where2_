@@ -63,9 +63,30 @@ const matchesQuery = (place: Place, query?: string) => {
   return haystack.includes(q);
 };
 
+const inferOperatingHours = (place: Place) => {
+  const name = String(place.name || '').toLowerCase();
+  const category = String(place.category || '').toLowerCase();
+
+  if (name.includes('seam coffee')) return { opening_time: '06:30', closing_time: '17:30' };
+  if (category.includes('coffee') || category.includes('cafe')) return { opening_time: '06:30', closing_time: '17:30' };
+  if (category.includes('bar') || category.includes('club') || category.includes('nightlife')) {
+    return { opening_time: '17:00', closing_time: '02:00' };
+  }
+  if (category.includes('restaurant') || category.includes('dining') || category.includes('food')) {
+    return { opening_time: '11:00', closing_time: '22:00' };
+  }
+  return { opening_time: '09:00', closing_time: '21:00' };
+};
+
 const withDefaults = (place: Place): Place => {
   const safeCategory = place.category?.trim() ? place.category : '✨ Surprise spot';
-  return { ...place, category: safeCategory };
+  const inferred = inferOperatingHours(place);
+  return {
+    ...place,
+    category: safeCategory,
+    opening_time: place.opening_time || inferred.opening_time,
+    closing_time: place.closing_time || inferred.closing_time,
+  };
 };
 
 const buildRadiusSteps = (maxRadiusMeters: number): number[] => {

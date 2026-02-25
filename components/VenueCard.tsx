@@ -9,6 +9,8 @@ import { supabase } from '../supabase';
 import { useHaptic } from '../utils/animations';
 import { getPlaceImageUrl, isPlaceholderImage, normalizeCategory } from '../utils/placeholders';
 import { preferenceEngine } from '../lib/preferenceEngine';
+import { GoThereModal } from './GoThereModal';
+import { getVenuePsychSignals } from '../lib/mockSignals';
 
 interface VenueCardProps {
   venue: Venue;
@@ -85,6 +87,8 @@ const normalizeTagKey = (tag: string) => tag.toLowerCase().replace(/[^a-z0-9]+/g
 export const VenueCard: React.FC<VenueCardProps> = ({ venue, recommendationScore, socialProof, onClick, onNavigate }) => {
   const [isSaved, setIsSaved] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showGoThere, setShowGoThere] = useState(false);
+  const [activeSignalIndex, setActiveSignalIndex] = useState(0);
   const { trigger } = useHaptic();
 
   const isOpen = isPlaceOpenNow(venue);
@@ -127,8 +131,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({ venue, recommendationScore
   const handleNavigateClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     trigger();
-    preferenceEngine.updateFromBehavior('navigate', venue);
-    onNavigate?.();
+    setShowGoThere(true);
   };
 
   const handleSaveClick = async (e: React.MouseEvent) => {
@@ -286,6 +289,24 @@ export const VenueCard: React.FC<VenueCardProps> = ({ venue, recommendationScore
     return unique.slice(0, 2);
   }, [venue.category, venue.vibe_tags]);
 
+  const psychSignals = useMemo(
+    () => getVenuePsychSignals(venue as any, displayArea),
+    [venue, displayArea]
+  );
+
+  useEffect(() => {
+    if (psychSignals.rotatingSignals.length <= 1) {
+      setActiveSignalIndex(0);
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setActiveSignalIndex((prev) => (prev + 1) % psychSignals.rotatingSignals.length);
+    }, 12000);
+
+    return () => window.clearInterval(timer);
+  }, [psychSignals.rotatingSignals]);
+
   const distanceKm = (venue.distanceNumeric || 0) / 1000;
   const driveMins = venue.distanceNumeric ? Math.ceil(distanceKm / 0.5) : 0;
   const distanceStr = venue.distanceNumeric
@@ -375,6 +396,14 @@ export const VenueCard: React.FC<VenueCardProps> = ({ venue, recommendationScore
             </div>
           </div>
 
+          {psychSignals.rotatingSignals.length > 0 && (
+            <div className="backdrop-blur-md bg-black/50 px-2 py-1 rounded-full border border-white/10 shadow-sm">
+              <span className="text-[10px] font-bold text-white/95">
+                {psychSignals.rotatingSignals[activeSignalIndex]}
+              </span>
+            </div>
+          )}
+
           {isPlaceholder && (
             <div className="backdrop-blur-md bg-black/60 px-2.5 py-1 rounded-full border border-white/10 shadow-sm flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[10px] text-white/70">auto_awesome</span>
@@ -412,6 +441,9 @@ export const VenueCard: React.FC<VenueCardProps> = ({ venue, recommendationScore
       <div className="relative z-10 px-4 pb-4 -mt-8 flex flex-col gap-1">
         <div>
           <h3 className="text-xl font-display font-bold text-white leading-tight drop-shadow-lg line-clamp-1">{venue.name}</h3>
+          <p className="text-[11px] font-medium text-white/75 mt-1 line-clamp-1">
+            {psychSignals.reasons.join(' • ')}
+          </p>
           {socialProofLabel && (
             <div className="flex items-center gap-1.5 mt-1 mb-0.5">
               <span className={`material-symbols-outlined text-[12px] ${socialProofLabel.color}`}>{socialProofLabel.icon}</span>
@@ -486,6 +518,17 @@ export const VenueCard: React.FC<VenueCardProps> = ({ venue, recommendationScore
           </motion.button>
         </div>
       </div>
+
+      {showGoThere && (
+        <GoThereModal
+          place={venue as any}
+          onClose={() => setShowGoThere(false)}
+          onDrive={() => {
+            preferenceEngine.updateFromBehavior('navigate', venue);
+            onNavigate?.();
+          }}
+        />
+      )}
     </motion.div>
   );
 };

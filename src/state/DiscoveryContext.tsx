@@ -5,6 +5,8 @@ import { supabase } from '../../supabase';
 import { Place } from '../../types';
 import { VenueScore } from '../../lib/recommendationEngine';
 import { applySecondaryFilters } from '../../lib/secondaryFilters';
+import { matchesMusicFilter } from '../../lib/mockSignals';
+import type { MusicFilter } from '../../lib/mockSignals';
 import { enrichPlacesWithImages } from '../../utils/imageEnricher';
 import { getCATNow } from '../../lib/timeFilter';
 import {
@@ -19,12 +21,14 @@ export type DiscoveryMode = 'RIGHT_NOW' | 'TONIGHT' | 'LATER';
 export type FilterMode = 'solo' | 'date' | 'group';
 export type CrowdFilter = 'any' | 'quiet' | 'vibes' | 'packed';
 export type PriceVibeFilter = 'any' | 'easy' | 'mid' | 'treat';
+export type { MusicFilter };
 type OriginMode = 'gps' | 'fallback' | 'preferences';
 
 interface SecondaryFilters {
   tonightOnly: boolean;
   crowd: CrowdFilter;
   priceVibe: PriceVibeFilter;
+  music: MusicFilter;
 }
 
 interface DiscoveryState {
@@ -65,6 +69,7 @@ interface DiscoveryContextValue {
   setTonightOnly: (value: boolean) => void;
   setCrowd: (value: CrowdFilter) => void;
   setPriceVibe: (value: PriceVibeFilter) => void;
+  setMusicFilter: (value: MusicFilter) => void;
   cycleCrowd: () => void;
   cyclePriceVibe: () => void;
   refresh: () => void;
@@ -79,6 +84,7 @@ const DEFAULT_SECONDARY: SecondaryFilters = {
   tonightOnly: false,
   crowd: 'any',
   priceVibe: 'any',
+  music: 'All',
 };
 
 const DEFAULT_STATE: DiscoveryState = {
@@ -119,12 +125,16 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const isFetchingRef = useRef(false);
 
   const filteredVenues = useMemo(
-    () =>
-      applySecondaryFilters(state.venues, {
+    () => {
+      const secondaryFiltered = applySecondaryFilters(state.venues, {
         tonightOnly: getTonightActive(state),
         crowd: state.secondaryFilters.crowd,
         priceVibe: state.secondaryFilters.priceVibe,
-      }),
+      });
+
+      if (state.secondaryFilters.music === 'All') return secondaryFiltered;
+      return secondaryFiltered.filter((venue) => matchesMusicFilter(venue, state.secondaryFilters.music));
+    },
     [state.venues, state.mode, state.secondaryFilters]
   );
 
@@ -313,6 +323,10 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setState((prev) => ({ ...prev, secondaryFilters: { ...prev.secondaryFilters, priceVibe: value } }));
   }, []);
 
+  const setMusicFilter = useCallback((value: MusicFilter) => {
+    setState((prev) => ({ ...prev, secondaryFilters: { ...prev.secondaryFilters, music: value } }));
+  }, []);
+
   const cycleCrowd = useCallback(() => {
     setState((prev) => {
       const next: CrowdFilter =
@@ -388,6 +402,7 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setTonightOnly,
       setCrowd,
       setPriceVibe,
+      setMusicFilter,
       cycleCrowd,
       cyclePriceVibe,
       refresh,
@@ -411,6 +426,7 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setTonightOnly,
       setCrowd,
       setPriceVibe,
+      setMusicFilter,
       cycleCrowd,
       cyclePriceVibe,
       refresh,
