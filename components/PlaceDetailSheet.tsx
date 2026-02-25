@@ -34,6 +34,7 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
   const [newPlanTitle, setNewPlanTitle] = useState('');
   const [crowdReportThanks, setCrowdReportThanks] = useState(false);
   const [reportingSignal, setReportingSignal] = useState<CrowdSignal | null>(null);
+  const [showMapSheet, setShowMapSheet] = useState(false);
   const thanksTimerRef = useRef<number | null>(null);
   
   const { triggerSuccess, trigger } = useHaptic();
@@ -115,7 +116,24 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
       if (data) handleAddToPlan(data as any);
   };
 
-  const handleNavigate = () => { trigger(); setShowGoThere(true); setIntentNow('detail_navigate_click'); };
+  const handleNavigate = () => {
+    trigger();
+    const hasCoords = place.latitude && place.longitude;
+    if (!hasCoords) {
+      showToast('Location not available', 'error');
+      return;
+    }
+    setShowGoThere(true);
+    setIntentNow('detail_navigate_click');
+  };
+  const handleViewMap = () => {
+    const hasCoords = place.latitude && place.longitude;
+    if (!hasCoords) {
+      showToast('Location not available', 'error');
+      return;
+    }
+    setShowMapSheet(true);
+  };
   const handleDriveInternal = () => { setShowGoThere(false); if (onShowMap) onShowMap(); else onClose(); showToast('Navigation started', 'success'); };
 
   const handleSave = async () => {
@@ -314,6 +332,44 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
             <motion.button whileTap={{ scale: 0.95 }} onClick={handleNavigate} className={`flex-[2] py-4 rounded-2xl ${tokens.accentBg} text-black font-bold text-sm shadow-[0_0_30px_rgba(159,80,255,0.3)] hover:shadow-[0_0_40px_rgba(159,80,255,0.5)] transition-all flex items-center justify-center gap-2 relative overflow-hidden group`}><div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-[100%] group-hover:animate-[shimmer_1.5s_infinite]" /><span className="material-symbols-outlined text-lg">near_me</span>Go there</motion.button>
           </div>
           <AnimatePresence>{showPlanSelector && (<motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className={`absolute inset-0 z-[60] ${tokens.surface} flex flex-col`}><div className={`p-6 border-b border-white/10 flex items-center justify-between ${tokens.surface} backdrop-blur-xl sticky top-0 z-10`}><h3 className="text-lg font-bold text-white">Add to Plan</h3><button onClick={() => setShowPlanSelector(false)} className="size-8 rounded-full bg-white/10 flex items-center justify-center text-white"><span className="material-symbols-outlined">close</span></button></div><div className="p-6 space-y-4"><div className={`${tokens.surface2} p-4 rounded-2xl border ${tokens.border}`}><h4 className="font-bold text-sm mb-3 text-white">Create New Plan</h4><div className="flex gap-2"><input type="text" value={newPlanTitle} onChange={(e) => setNewPlanTitle(e.target.value)} placeholder="e.g. Friday Night" className={`flex-1 bg-black/20 border ${tokens.border} rounded-xl px-4 py-3 text-sm text-white focus:ring-primary focus:border-primary`} /><button onClick={handleCreatePlan} disabled={!newPlanTitle.trim()} className={`${tokens.accentBg} px-4 rounded-xl font-bold text-sm text-black`}>Create</button></div></div><div className="space-y-2">{userPlans.map(plan => (<button key={plan.id} onClick={() => handleAddToPlan(plan)} className={`w-full p-4 ${tokens.surface2} border ${tokens.border} rounded-xl flex items-center justify-between hover:bg-white/10 text-left`}><span className="font-bold text-white text-sm">{plan.title}</span><span className={`material-symbols-outlined ${tokens.accentPurple}`}>add_circle</span></button>))}</div></div></motion.div>)}</AnimatePresence>
+          <AnimatePresence>
+            {showMapSheet && (
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", stiffness: 280, damping: 30 }}
+                className={`absolute inset-0 z-[58] ${tokens.surface} flex flex-col`}
+              >
+                <div className={`p-6 border-b border-white/10 flex items-center justify-between ${tokens.surface} backdrop-blur-xl sticky top-0 z-10`}>
+                  <h3 className="text-lg font-bold text-white">Map Preview</h3>
+                  <button onClick={() => setShowMapSheet(false)} className="size-8 rounded-full bg-white/10 flex items-center justify-center text-white">
+                    <span className="material-symbols-outlined">close</span>
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="rounded-2xl overflow-hidden border border-white/10 bg-black/30">
+                    <iframe
+                      title="Map"
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${(place.longitude || 0) - 0.01},${(place.latitude || 0) - 0.01},${(place.longitude || 0) + 0.01},${(place.latitude || 0) + 0.01}&marker=${place.latitude || 0},${place.longitude || 0}`}
+                      className="w-full"
+                      style={{ height: 300 }}
+                      loading="lazy"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowMapSheet(false);
+                      handleNavigate();
+                    }}
+                    className="w-full py-3 rounded-xl bg-primary text-black font-bold text-sm shadow-lg"
+                  >
+                    Get Directions
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <AnimatePresence>{showGoThere && (<GoThereModal place={place} onClose={() => setShowGoThere(false)} onDrive={handleDriveInternal} />)}</AnimatePresence>
       </motion.div>
     </motion.div>

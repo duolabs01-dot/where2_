@@ -68,10 +68,21 @@ export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDr
   };
 
   const handleDrive = async () => {
+    if (!requireCoords()) return;
     setLaunchingMode('drive');
     await logGoThereEvent('drive');
+
+    const appleMapsUrl = `maps://?daddr=${venue.latitude},${venue.longitude}&dirflg=d`;
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${venue.latitude},${venue.longitude}&travelmode=driving`;
+
+    window.location.href = appleMapsUrl;
+    setTimeout(() => {
+      if (document.visibilityState === 'visible') {
+        window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
+      }
+    }, 1500);
+
     await maybeCreateCheckIn();
-    onDrive();
     onClose();
     setLaunchingMode(null);
   };
