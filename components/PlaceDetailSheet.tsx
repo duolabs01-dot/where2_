@@ -23,6 +23,8 @@ interface PlaceDetailSheetProps {
   onRequireAuth: (action?: () => void) => void;
 }
 
+type CrowdSignal = 'quiet' | 'vibes' | 'packed';
+
 const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMap?: () => void; onRequireAuth: (action?: () => void) => void }> = ({ place, onClose, onShowMap, onRequireAuth }) => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [isSaved, setIsSaved] = useState(false);
@@ -30,6 +32,9 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
   const [showPlanSelector, setShowPlanSelector] = useState(false);
   const [userPlans, setUserPlans] = useState<Plan[]>([]);
   const [newPlanTitle, setNewPlanTitle] = useState('');
+  const [crowdReportThanks, setCrowdReportThanks] = useState(false);
+  const [reportingSignal, setReportingSignal] = useState<CrowdSignal | null>(null);
+  const thanksTimerRef = useRef<number | null>(null);
   
   const { triggerSuccess, trigger } = useHaptic();
   const { tokens } = useTheme();
@@ -45,7 +50,16 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
   useEffect(() => {
     fetchReviews();
     checkSaveState();
+    setCrowdReportThanks(false);
   }, [place]);
+
+  useEffect(() => {
+    return () => {
+      if (thanksTimerRef.current !== null) {
+        window.clearTimeout(thanksTimerRef.current);
+      }
+    };
+  }, []);
 
   const checkSaveState = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -145,6 +159,55 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
       }
   };
 
+  const getLastCrowdReportedAt = () => {
+    if (typeof window === 'undefined') return null;
+    const key = `last_reported_${place.id}`;
+    const raw = window.sessionStorage.getItem(key);
+    if (!raw) return null;
+    const ts = Number(raw);
+    return Number.isFinite(ts) ? ts : null;
+  };
+
+  const setLastCrowdReportedAt = (ts: number) => {
+    if (typeof window === 'undefined') return;
+    const key = `last_reported_${place.id}`;
+    window.sessionStorage.setItem(key, String(ts));
+  };
+
+  const handleCrowdReport = async (signal: CrowdSignal) => {
+    const lastReportedAt = getLastCrowdReportedAt();
+    const now = Date.now();
+    const rateLimitMs = 30 * 60 * 1000;
+
+    if (lastReportedAt && now - lastReportedAt < rateLimitMs) {
+      const minsLeft = Math.max(1, Math.ceil((rateLimitMs - (now - lastReportedAt)) / 60000));
+      showToast(`You can report again in ${minsLeft} min`, 'info');
+      return;
+    }
+
+    setReportingSignal(signal);
+    try {
+      const { error } = await supabase.from('crowd_reports').insert({
+        place_id: place.id,
+        signal,
+      });
+      if (error) throw error;
+
+      setLastCrowdReportedAt(now);
+      setCrowdReportThanks(true);
+      if (thanksTimerRef.current !== null) {
+        window.clearTimeout(thanksTimerRef.current);
+      }
+      thanksTimerRef.current = window.setTimeout(() => {
+        setCrowdReportThanks(false);
+      }, 2000);
+    } catch (error: any) {
+      showToast(error?.message || 'Failed to report crowd signal', 'error');
+    } finally {
+      setReportingSignal(null);
+    }
+  };
+
   const formatTimeDisplay = (timeStr?: string) => {
     if (!timeStr) return '';
     const [h, m] = timeStr.split(':');
@@ -183,6 +246,50 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
                  <div className="mb-6">
                     <h1 className="text-3xl font-display font-bold text-white leading-tight mb-1">{place.name}</h1>
                     <div className="flex items-center gap-2 text-sm font-medium text-gray-400"><span>{place.category}</span><span className="size-1 rounded-full bg-gray-600" /><span>{place.city}</span>{place.is_verified && <span className="material-symbols-outlined text-blue-400 text-sm filled-icon ml-1">verified</span>}</div>
+                    <div className={`mt-4 p-3 rounded-2xl border ${tokens.border} ${tokens.surface2}`}>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Crowd right now</p>
+                        <AnimatePresence mode="wait">
+                          {crowdReportThanks && (
+                            <motion.span
+                              key="crowd-thanks"
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -4 }}
+                              className="text-[11px] font-bold text-green-300"
+                            >
+                              Thanks!
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          disabled={reportingSignal !== null}
+                          onClick={() => handleCrowdReport('quiet')}
+                          className={`rounded-xl border px-2 py-2 text-xs font-bold transition-colors ${tokens.border} bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-60`}
+                        >
+                          Quiet
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reportingSignal !== null}
+                          onClick={() => handleCrowdReport('vibes')}
+                          className={`rounded-xl border px-2 py-2 text-xs font-bold transition-colors ${tokens.border} bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-60`}
+                        >
+                          Buzzing
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reportingSignal !== null}
+                          onClick={() => handleCrowdReport('packed')}
+                          className={`rounded-xl border px-2 py-2 text-xs font-bold transition-colors ${tokens.border} bg-red-500/10 text-red-300 hover:bg-red-500/20 disabled:opacity-60`}
+                        >
+                          Packed
+                        </button>
+                      </div>
+                    </div>
                  </div>
                  <div className="grid grid-cols-4 gap-2 mb-8">
                     <div className={`${tokens.surface2} rounded-2xl p-3 flex flex-col items-center justify-center gap-1 border ${tokens.border}`}><span className="material-symbols-outlined text-gray-400 text-lg">schedule</span><span className={`text-xs font-bold ${timeStatus.color}`}>{timeStatus.label}</span></div>
