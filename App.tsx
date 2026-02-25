@@ -17,6 +17,7 @@ import { FiltersProvider, useFilters } from './lib/filtersStore';
 import { DiscoveryProvider, useDiscoveryContext } from './src/state/DiscoveryContext';
 import { SearchIntent, NavTab } from './types';
 import { initTheme } from './utils/theme';
+import { RecommendationEngine, VenueScore, Venue } from './lib/recommendationEngine';
 
 const AppShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('Discover');
@@ -26,6 +27,7 @@ const AppShell: React.FC = () => {
   const [showWelcome, setShowWelcome] = useState(true);
   const [initialIntent, setInitialIntent] = useState<SearchIntent | null>(null);
   const pendingActionRef = useRef<(() => void) | null>(null);
+  const prefetchedRef = useRef<{ venues: Venue[]; scores: VenueScore[] } | null>(null);
 
   const { state: discoveryState } = useDiscoveryContext();
   const { resetFilters } = useFilters();
@@ -60,6 +62,66 @@ const AppShell: React.FC = () => {
     setShowWelcome(false);
     localStorage.setItem('where2_welcomed', 'true');
   }, []);
+
+  // Prefetch for logged-in branding moment
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    if (!showWelcome || !session) return;
+
+    const engine = new RecommendationEngine(supabase as any);
+
+    const prefetch = async () => {
+      try {
+        let lat: number | null = null;
+        let lng: number | null = null;
+        if (navigator.geolocation) {
+          await new Promise<void>((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                lat = pos.coords.latitude;
+                lng = pos.coords.longitude;
+                resolve();
+              },
+              () => resolve(),
+              { enableHighAccuracy: true, timeout: 4000, maximumAge: 60000 }
+            );
+          });
+        }
+
+        const { venues, scores } = await engine.getTopPicks({
+          location: lat && lng ? { lat, lng } : null,
+          radius: 5000,
+          openNow: true,
+          categories: [],
+          userPreferences: [],
+          searchQuery: '',
+        });
+
+        prefetchedRef.current = {
+          venues: venues as Venue[],
+          scores: scores as VenueScore[],
+        };
+      } catch (_err) {
+        prefetchedRef.current = null;
+      }
+    };
+
+    prefetch();
+    timer = setTimeout(() => {
+      handleWelcomeComplete({
+        mode: 'smart_auto',
+        timeMode: 'open_now',
+        categories: ['All'],
+        groupContext: 'solo',
+        initialRadius: 600,
+        autoExpand: true,
+      });
+    }, 5000);
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [handleWelcomeComplete, session, showWelcome]);
 
   const handleRequireAuth = useCallback((action?: () => void) => {
     if (session) {
@@ -103,7 +165,11 @@ const AppShell: React.FC = () => {
   return (
     <div className="h-[100dvh] w-full bg-background text-white overflow-hidden relative">
       {showWelcome ? (
-        <WelcomeScreen onComplete={handleWelcomeComplete} />
+        <WelcomeScreen
+          onComplete={handleWelcomeComplete}
+          onSignIn={() => setAuthOpen(true)}
+          autoAdvanceMs={session ? 5000 : undefined}
+        />
       ) : (
         <>
           <div data-scroll-host="main" className="h-full overflow-y-auto no-scrollbar pb-[calc(env(safe-area-inset-bottom)+92px)]">
@@ -115,6 +181,8 @@ const AppShell: React.FC = () => {
                 onRequireAuth={handleRequireAuth}
                 session={session}
                 initialIntent={initialIntent}
+                prefetchedVenues={prefetchedRef.current?.venues}
+                prefetchedScores={prefetchedRef.current?.scores}
                 onSwitchToMap={() => setActiveTab('Map')}
               />
             )}

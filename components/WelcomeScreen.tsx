@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import { PrimaryButton } from './Layouts';
 import { NeonLogo } from './NeonLogo';
@@ -9,6 +9,9 @@ import { setIntentNow } from '../lib/intentEngine';
 
 interface WelcomeScreenProps {
   onComplete: (intent: SearchIntent) => void;
+  onSignIn?: () => void;
+  autoAdvanceMs?: number;
+  onPrefetchReady?: (venues: any[]) => void;
   source?: 'onboarding' | 'profile';
 }
 
@@ -105,10 +108,11 @@ const ctaBreathing: Variants = {
   }
 };
 
-export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
+export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete, onSignIn, autoAdvanceMs }) => {
   const [showVibeSheet, setShowVibeSheet] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [reassuranceIndex, setReassuranceIndex] = useState(0);
+  const autoTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Rotate reassurance messages
   useEffect(() => {
@@ -117,6 +121,16 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
     }, 4000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!autoAdvanceMs) return;
+    autoTimerRef.current = setTimeout(() => {
+      handleFindNow();
+    }, autoAdvanceMs);
+    return () => {
+      if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+    };
+  }, [autoAdvanceMs]);
 
   const handleFindNow = () => {
     // Frictionless Handoff: Immediate trigger
@@ -227,24 +241,32 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
             variants={ctaBreathing}
             className="relative z-20 mt-4 mb-2 w-full max-w-[280px] rounded-2xl"
         >
-            <PrimaryButton 
-                onClick={handleFindNow}
-                disabled={isLocating}
-                className="!py-4 !text-base !rounded-2xl !bg-white !text-black !border-none hover:!scale-[1.02] active:!scale-95 transition-transform relative overflow-hidden w-full"
+          <PrimaryButton 
+              onClick={handleFindNow}
+              disabled={isLocating}
+              className="!py-4 !text-base !rounded-2xl !bg-white !text-black !border-none hover:!scale-[1.02] active:!scale-95 transition-transform relative overflow-hidden w-full"
+          >
+              {isLocating ? (
+                 <span className="flex items-center justify-center gap-2">
+                    <span className="size-4 border-2 border-black/30 border-t-black rounded-full animate-spin"/>
+                    Locating...
+                 </span>
+              ) : (
+                 <span className="flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined filled-icon">near_me</span>
+                    Find My Vibe →
+                 </span>
+              )}
+          </PrimaryButton>
+          {onSignIn && (
+            <button
+              onClick={onSignIn}
+              className="mt-3 w-full text-sm font-bold text-gray-400 hover:text-white transition-colors"
             >
-                {isLocating ? (
-                   <span className="flex items-center justify-center gap-2">
-                      <span className="size-4 border-2 border-black/30 border-t-black rounded-full animate-spin"/>
-                      Locating...
-                   </span>
-                ) : (
-                   <span className="flex items-center justify-center gap-2">
-                      <span className="material-symbols-outlined filled-icon">near_me</span>
-                      Find me somewhere open
-                   </span>
-                )}
-            </PrimaryButton>
-        </motion.div>
+              Sign In
+            </button>
+          )}
+      </motion.div>
 
         {/* Reassurance Micro-copy (Rotating) */}
         <div className="h-6 relative w-full flex items-center justify-center mb-6 overflow-hidden">
@@ -295,6 +317,15 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete }) => {
            />
         )}
       </AnimatePresence>
+
+      {autoAdvanceMs && (
+        <motion.div
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: autoAdvanceMs / 1000, ease: 'linear' }}
+          className="absolute left-0 right-0 bottom-6 h-0.5 origin-left bg-primary shadow-[0_0_12px_rgba(159,80,255,0.8)]"
+        />
+      )}
     </motion.div>
   );
 };

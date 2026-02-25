@@ -28,6 +28,8 @@ interface DiscoverProps {
   session: Session | null;
   initialIntent: any; 
   onSwitchToMap?: () => void;
+  prefetchedVenues?: Venue[];
+  prefetchedScores?: VenueScore[];
 }
 
 // Adaptive Ladder: [600, 1500, 3000, 6000, 12000, 20000, 30000]
@@ -123,6 +125,7 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
   const [isCollapsed, setIsCollapsed] = useState(false);
   const scrollTopRef = useRef(0); 
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
+  const prefetchedAppliedRef = useRef(false);
 
   // Guards
   const lastRequestKeyRef = useRef<string>('');
@@ -939,3 +942,12 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
     </PageWrapper>
   );
 };
+  useEffect(() => {
+    if (prefetchedAppliedRef.current) return;
+    if (prefetchedVenues && prefetchedVenues.length) {
+      setVenues(prefetchedVenues);
+      setScores(prefetchedScores || []);
+      setLoading(false);
+      prefetchedAppliedRef.current = true;
+    }
+  }, [prefetchedVenues, prefetchedScores]);
