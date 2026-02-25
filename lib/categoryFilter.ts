@@ -3,6 +3,8 @@ type CategoryLike = {
   name?: string | null;
   description?: string | null;
   vibe_tags?: string[] | null;
+  is_verified?: boolean | null;
+  created_at?: string | Date | null;
 };
 
 const CATEGORY_ALIASES: Record<string, string[]> = {
@@ -30,6 +32,20 @@ const normalizeSelection = (value: string) => {
   return n;
 };
 
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+const isRecentVenue = (createdAt?: string | Date | null) => {
+  if (!createdAt) return false;
+  const createdDate = createdAt instanceof Date ? createdAt : new Date(createdAt);
+  if (Number.isNaN(createdDate.getTime())) return false;
+
+  const ageMs = Date.now() - createdDate.getTime();
+  return ageMs >= 0 && ageMs <= THIRTY_DAYS_MS;
+};
+
+const isHiddenGem = (item: CategoryLike) =>
+  item.is_verified === false || isRecentVenue(item.created_at);
+
 export const matchesCategoryFilters = (
   item: CategoryLike,
   selectedCategories: string[] = []
@@ -39,8 +55,9 @@ export const matchesCategoryFilters = (
   const normalizedSelections = selectedCategories.map(normalizeSelection);
   if (normalizedSelections.includes('all')) return true;
 
+  const includeHiddenGems = normalizedSelections.includes('hidden gems');
   const filterableSelections = normalizedSelections.filter((s) => s !== 'hidden gems');
-  if (!filterableSelections.length) return true;
+  if (!filterableSelections.length) return includeHiddenGems ? isHiddenGem(item) : true;
 
   const haystack = normalize([
     item.category,
@@ -54,5 +71,5 @@ export const matchesCategoryFilters = (
   return filterableSelections.some((selection) => {
     const keywords = CATEGORY_ALIASES[selection] || [selection];
     return keywords.some((keyword) => haystack.includes(normalize(keyword)));
-  });
+  }) || (includeHiddenGems && isHiddenGem(item));
 };

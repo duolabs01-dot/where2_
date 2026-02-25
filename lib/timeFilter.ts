@@ -33,10 +33,15 @@ export const getCATNow = (): Date => {
     );
 };
 
-export const isPlaceOpenNow = (place: any) => {
-    if (!place) return false;
-    if (place.status === 'CLOSED') return false;
-    if (place.status === 'OPEN') return true;
+export interface PlaceOpenNowStatus {
+    is_open: boolean;
+    open_hours_unknown: boolean;
+}
+
+export const isPlaceOpenNow = (place: any): PlaceOpenNowStatus => {
+    if (!place) return { is_open: false, open_hours_unknown: true };
+    if (place.status === 'CLOSED') return { is_open: false, open_hours_unknown: false };
+    if (place.status === 'OPEN') return { is_open: true, open_hours_unknown: false };
     
     // Check hours relative to CAT
     const nowCAT = getCATNow();
@@ -49,16 +54,21 @@ export const isPlaceOpenNow = (place: any) => {
         const end = ch * 60 + cm;
         
         if (end < start) { // Handles venues open past midnight (e.g., 18:00 to 02:00)
-            return currentTimeMinutes >= start || currentTimeMinutes <= end;
+            return { is_open: currentTimeMinutes >= start || currentTimeMinutes <= end, open_hours_unknown: false };
         }
-        return currentTimeMinutes >= start && currentTimeMinutes <= end;
+        return { is_open: currentTimeMinutes >= start && currentTimeMinutes <= end, open_hours_unknown: false };
     }
-    
-    return true;
+
+    // If no status + no opening/closing data, don't assume "open".
+    if (!place.status && !place.opening_time && !place.closing_time) {
+        return { is_open: false, open_hours_unknown: true };
+    }
+
+    return { is_open: true, open_hours_unknown: false };
 };
 
 export const checkTimeFilter = (place: any, filter: string) => {
-    if (filter === 'now') return isPlaceOpenNow(place);
+    if (filter === 'now') return isPlaceOpenNow(place).is_open;
     return true;
 };
 

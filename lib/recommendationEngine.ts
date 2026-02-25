@@ -59,7 +59,7 @@ export class RecommendationEngine {
         if (!location || typeof location.lat !== 'number' || typeof location.lng !== 'number') {
             const filtered = raw.filter((v) => {
                 if (!matchesCategoryFilters(v, categories)) return false;
-                if (openNow && !isPlaceOpenNow(v)) return false;
+                if (openNow && !isPlaceOpenNow(v).is_open) return false;
                 return true;
             });
             return {
@@ -99,8 +99,8 @@ export class RecommendationEngine {
                     return null;
                 }
 
-                const isOpen = isPlaceOpenNow(v);
-                if (openNow && !isOpen) {
+                const openStatus = isPlaceOpenNow(v);
+                if (openNow && !openStatus.is_open) {
                     return null;
                 }
 
@@ -133,7 +133,7 @@ export class RecommendationEngine {
                     else if (km <= 20) distanceScore = 0.2;
                 }
 
-                const openBonus = isOpen ? 0.8 : 0;
+                const openBonus = openStatus.is_open ? 0.8 : 0;
                 const base = 0.3;
 
                 const score = base + openBonus + vibeScore + distanceScore;

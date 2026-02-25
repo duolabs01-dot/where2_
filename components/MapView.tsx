@@ -80,7 +80,7 @@ interface VenueMarkerProps {
 }
 
 const VenueMarker: React.FC<VenueMarkerProps> = ({ place, onSelect }) => {
-    const isOpen = isPlaceOpenNow(place);
+    const isOpen = isPlaceOpenNow(place).is_open;
     const isTrending = (place.price_level || 0) > 2;
 
     
@@ -237,7 +237,8 @@ const MapPreviewCard: React.FC<{
     onExpand: () => void;
     userLocation: PreciseLocation | null;
 }> = ({ place, onClose, onNavigate, onExpand, userLocation }) => {
-    const isOpen = isPlaceOpenNow(place);
+    const openStatus = isPlaceOpenNow(place);
+    const isOpen = openStatus.is_open;
     let distanceStr = 'Nearby';
     if (userLocation && typeof place.latitude === 'number' && typeof place.longitude === 'number') {
         const d = calculateDistance(userLocation.latitude, userLocation.longitude, place.latitude, place.longitude);
@@ -296,8 +297,8 @@ const MapPreviewCard: React.FC<{
                         </div>
 
                         <div className="flex items-center gap-3 mt-3">
-                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${isOpen ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                {isOpen ? 'Open Now' : 'Closed'}
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border ${openStatus.open_hours_unknown ? 'bg-amber-500/10 text-amber-300 border-amber-500/20' : isOpen ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                                {openStatus.open_hours_unknown ? 'Hours Not Confirmed' : isOpen ? 'Open Now' : 'Closed'}
                             </span>
                             <span className="text-xs font-mono text-gray-500 font-bold">{price}</span>
                         </div>

@@ -153,14 +153,16 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
     return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(' ', '');
   };
 
-  const isOpenNow = useMemo(() => isPlaceOpenNow(place), [place]);
+  const openStatus = useMemo(() => isPlaceOpenNow(place), [place]);
   const priceStr = place.price_level ? 'R'.repeat(place.price_level) : 'RR';
   const rating = 4.8; 
   const distance = place.distance || 'Nearby';
 
-  const timeStatus = isOpenNow 
-    ? { label: 'Open', color: 'text-green-400', sub: `Until ${formatTimeDisplay(place.closing_time) || 'late'}` }
-    : { label: 'Closed', color: 'text-red-400', sub: `Opens ${formatTimeDisplay(place.opening_time) || 'soon'}` };
+  const timeStatus = openStatus.open_hours_unknown
+    ? { label: 'Hours not confirmed', color: 'text-amber-300', sub: 'Please confirm before visiting' }
+    : openStatus.is_open
+      ? { label: 'Open', color: 'text-green-400', sub: `Until ${formatTimeDisplay(place.closing_time) || 'late'}` }
+      : { label: 'Closed', color: 'text-red-400', sub: `Opens ${formatTimeDisplay(place.opening_time) || 'soon'}` };
 
   return (
     <motion.div className="fixed inset-0 z-[400] flex flex-col justify-end isolate pointer-events-none">

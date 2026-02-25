@@ -75,7 +75,7 @@ export const getPriceVibeFromLevel = (priceLevel?: number | null): PriceVibeFilt
 };
 
 export const opensLaterToday = (place: SecondaryFilterPlace, nowMinutes: number): boolean => {
-  if (isPlaceOpenNow(place)) return false;
+  if (isPlaceOpenNow(place).is_open) return false;
   const openingMinutes = parseMinutes(place.opening_time);
   if (openingMinutes === null) return false;
   return openingMinutes > nowMinutes;
