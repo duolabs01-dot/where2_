@@ -147,6 +147,16 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
   const engine = useMemo(() => new RecommendationEngine(supabase), []);
 
   useEffect(() => {
+    if (prefetchedAppliedRef.current) return;
+    if (prefetchedVenues && prefetchedVenues.length) {
+      setVenues(prefetchedVenues);
+      setScores(prefetchedScores || []);
+      setLoading(false);
+      prefetchedAppliedRef.current = true;
+    }
+  }, [prefetchedVenues, prefetchedScores]);
+
+  useEffect(() => {
     const timer = setInterval(() => setCurrentTime(getCATNow()), 60000);
     return () => clearInterval(timer);
   }, []);
@@ -942,12 +952,3 @@ export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, o
     </PageWrapper>
   );
 };
-  useEffect(() => {
-    if (prefetchedAppliedRef.current) return;
-    if (prefetchedVenues && prefetchedVenues.length) {
-      setVenues(prefetchedVenues);
-      setScores(prefetchedScores || []);
-      setLoading(false);
-      prefetchedAppliedRef.current = true;
-    }
-  }, [prefetchedVenues, prefetchedScores]);
