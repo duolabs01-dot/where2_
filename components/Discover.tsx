@@ -103,7 +103,17 @@ interface FriendActivityItem {
   placeName: string;
 }
 
-export const Discover: React.FC<DiscoverProps> = ({ userCity, userPreferences, onSwitchToMap, onCityChange, initialIntent, onRequireAuth, session }) => {
+export const Discover: React.FC<DiscoverProps> = ({
+  userCity,
+  userPreferences,
+  onSwitchToMap,
+  onCityChange,
+  initialIntent,
+  onRequireAuth,
+  session,
+  prefetchedVenues,
+  prefetchedScores,
+}) => {
   const { state: exploreState, setOrigin, setFocusedPlace } = useExploreState();
   const { state: filterState, setRadiusMeters, setOpenNowOnly, toggleCategory, setCategories, setMode, resetFilters, setMusicVibe } = useFilters();
 
