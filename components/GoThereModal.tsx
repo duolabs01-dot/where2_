@@ -147,9 +147,9 @@ export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDr
 
         <motion.div
           variants={prefersReducedMotion ? undefined : sheetVariants}
-          initial={prefersReducedMotion ? false : "hidden"}
-          animate={prefersReducedMotion ? false : "visible"}
-          exit={prefersReducedMotion ? false : "exit"}
+          initial={prefersReducedMotion ? undefined : "hidden"}
+          animate={prefersReducedMotion ? undefined : "visible"}
+          exit={prefersReducedMotion ? undefined : "exit"}
           className={`absolute bottom-0 left-0 right-0 mx-auto w-full max-w-md rounded-t-3xl border-t border-white/10 bg-white/[0.04] ${tokens.surface} shadow-2xl`}
         >
           <div className="p-6 space-y-4">
