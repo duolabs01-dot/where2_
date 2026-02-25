@@ -4,6 +4,7 @@ import { Place } from '../types';
 import { useTheme } from './ThemeProvider';
 import { supabase } from '../supabase';
 import { showToast } from '../utils/toast';
+import { prefersReducedMotion, sheetVariants, springs } from '../utils/animations';
 
 type TransportMode = 'drive' | 'uber' | 'bolt' | 'walk';
 
@@ -145,10 +146,10 @@ export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDr
         <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose} />
 
         <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+          variants={prefersReducedMotion ? undefined : sheetVariants}
+          initial={prefersReducedMotion ? false : "hidden"}
+          animate={prefersReducedMotion ? false : "visible"}
+          exit={prefersReducedMotion ? false : "exit"}
           className={`absolute bottom-0 left-0 right-0 mx-auto w-full max-w-md rounded-t-3xl border-t border-white/10 bg-white/[0.04] ${tokens.surface} shadow-2xl`}
         >
           <div className="p-6 space-y-4">
@@ -164,34 +165,46 @@ export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDr
             </p>
 
             <div className="grid grid-cols-2 gap-3">
-              <button
+              <motion.button
                 onClick={handleUber}
                 disabled={launchingMode !== null}
+                whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.96 }}
+                transition={prefersReducedMotion ? undefined : springs.micro}
                 className="rounded-xl border border-white/10 bg-black/30 text-white font-bold py-3 hover:bg-white/10 disabled:opacity-60"
               >
                 Uber
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={handleBolt}
                 disabled={launchingMode !== null}
+                whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.96 }}
+                transition={prefersReducedMotion ? undefined : springs.micro}
                 className="rounded-xl border border-white/10 bg-black/30 text-white font-bold py-3 hover:bg-white/10 disabled:opacity-60"
               >
                 Bolt
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={handleDrive}
                 disabled={launchingMode !== null}
+                whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.96 }}
+                transition={prefersReducedMotion ? undefined : springs.micro}
                 className="rounded-xl border border-white/10 bg-black/30 text-white font-bold py-3 hover:bg-white/10 disabled:opacity-60"
               >
                 Drive
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 onClick={handleWalk}
                 disabled={launchingMode !== null}
+                whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.96 }}
+                transition={prefersReducedMotion ? undefined : springs.micro}
                 className="rounded-xl border border-white/10 bg-black/30 text-white font-bold py-3 hover:bg-white/10 disabled:opacity-60"
               >
                 Walk
-              </button>
+              </motion.button>
             </div>
           </div>
         </motion.div>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { NavTab } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useHaptic } from '../utils/animations';
+import { prefersReducedMotion, springs, useHaptic } from '../utils/animations';
 
 interface BottomNavProps {
   activeTab: NavTab;
@@ -91,12 +91,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
           opacity: visibility === 'hidden' ? 0.08 : (visibility === 'peek' ? 0.55 : 1),
           pointerEvents: visibility === 'hidden' ? 'none' : 'auto'
         }}
-        transition={{ 
-          type: "spring", 
-          stiffness: 400, 
-          damping: 30, 
-          mass: 0.5 
-        }}
+        transition={prefersReducedMotion ? undefined : springs.snappy}
         onClick={handleInteraction}
         className="flex items-center gap-1 p-1.5 rounded-full bg-black/20 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden cursor-pointer"
       >
@@ -111,7 +106,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
             return (
               <motion.button
                 key="add"
-                whileTap={{ scale: 0.9 }}
+                whileTap={prefersReducedMotion ? undefined : { scale: 0.9, transition: springs.micro }}
                 onClick={(e) => { 
                     e.stopPropagation(); 
                     handleInteraction(); 
@@ -137,15 +132,25 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
               className={`relative flex items-center justify-center h-11 rounded-full transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isActive ? 'px-5 bg-white/10 border border-white/5' : 'w-12 hover:bg-white/5'}`}
             >
               <div className="flex items-center justify-center gap-2 relative z-10">
-                <span 
+                <motion.span
                   className={`material-symbols-outlined text-[22px] transition-colors duration-300 ${isActive ? 'text-white' : 'text-white/60'}`}
+                  animate={
+                    prefersReducedMotion
+                      ? undefined
+                      : {
+                          fontVariationSettings: isActive
+                            ? "'FILL' 1, 'wght' 500"
+                            : "'FILL' 0, 'wght' 300",
+                        }
+                  }
+                  transition={prefersReducedMotion ? undefined : springs.micro}
                   style={{
                     fontVariationSettings: isActive ? "'FILL' 1, 'wght' 500" : "'FILL' 0, 'wght' 300",
-                    textShadow: isActive ? '0 0 12px rgba(255,255,255,0.3)' : 'none'
+                    textShadow: isActive ? '0 0 12px rgba(255,255,255,0.3)' : 'none',
                   }}
                 >
                   {item.icon}
-                </span>
+                </motion.span>
                 
                 <AnimatePresence>
                   {isActive && (
@@ -153,6 +158,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
                       initial={{ width: 0, opacity: 0, scale: 0.5 }}
                       animate={{ width: 'auto', opacity: 1, scale: 1 }}
                       exit={{ width: 0, opacity: 0, scale: 0.5 }}
+                      transition={prefersReducedMotion ? undefined : springs.snappy}
                       className="text-[12px] font-bold text-white whitespace-nowrap overflow-hidden origin-left"
                     >
                       {item.label}

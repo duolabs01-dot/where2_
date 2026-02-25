@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { supabase } from '../supabase';
 import { Venue, VenueScore } from '../lib/recommendationEngine';
 import { isPlaceOpenNow } from '../lib/timeFilter';
 import { getPlaceImageUrl } from '../utils/placeholders';
+import { cardVariants, prefersReducedMotion, springs } from '../utils/animations';
 
 type CrowdSignal = 'quiet' | 'vibes' | 'packed';
 
@@ -11,6 +13,7 @@ interface VenueCardProps {
   recommendationScore?: VenueScore;
   onClick: () => void;
   onNavigate: () => void;
+  index?: number;
 }
 
 const crowdLabelMap: Record<CrowdSignal, string> = {
@@ -30,6 +33,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
   recommendationScore,
   onClick,
   onNavigate,
+  index = 0,
 }) => {
   const [crowdConsensus, setCrowdConsensus] = useState<CrowdSignal | null>(null);
   const [currentImage, setCurrentImage] = useState(0);
@@ -125,10 +129,10 @@ export const VenueCard: React.FC<VenueCardProps> = ({
     [images.length]
   );
 
+  const shouldAnimate = !prefersReducedMotion;
   const openStatus = useMemo(() => isPlaceOpenNow(venue), [venue]);
   const price = venue.price_level ? 'R'.repeat(Math.max(1, venue.price_level)) : 'RR';
   const distance = venue.distance || (venue.distanceNumeric ? `${Math.round(venue.distanceNumeric)}m` : 'Nearby');
-  const imageSrc = images[currentImage] || getPlaceImageUrl(venue as any);
   const scorePct = recommendationScore
     ? Math.round((Math.max(0, Math.min(3.6, recommendationScore.score || 0)) / 3.6) * 100)
     : null;
@@ -147,7 +151,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
   })();
 
   return (
-    <div
+    <motion.div
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -159,6 +163,11 @@ export const VenueCard: React.FC<VenueCardProps> = ({
       }}
       className="w-full h-[220px] text-left rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden hover:bg-white/[0.05] transition-colors cursor-pointer relative"
       ref={observerRef}
+      variants={shouldAnimate ? cardVariants : undefined}
+      custom={index}
+      initial={shouldAnimate ? 'hidden' : undefined}
+      animate={shouldAnimate ? 'visible' : undefined}
+      whileTap={shouldAnimate ? { scale: 0.97, transition: springs.micro } : undefined}
     >
       <div className="absolute inset-0">
         <div className="absolute inset-0">
@@ -236,17 +245,18 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           )}
         </div>
 
-        <button
+        <motion.button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             onNavigate();
           }}
+          whileTap={shouldAnimate ? { scale: 0.95, transition: springs.micro } : undefined}
           className="mt-2 w-full py-2.5 rounded-xl bg-black/50 text-white font-bold text-sm border border-white/10 hover:bg-black/70 transition-colors"
         >
-          Go There →
-        </button>
+          Go There ->
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 };

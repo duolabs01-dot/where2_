@@ -5,7 +5,7 @@ import { Place, Review, Plan } from '../types';
 import { showToast } from '../utils/toast';
 import { useSwipe } from './Layouts';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion';
-import { triggerConfetti, useHaptic } from '../utils/animations';
+import { prefersReducedMotion, sheetVariants, springs, triggerConfetti, useHaptic } from '../utils/animations';
 import { IOSGlassImage } from './IOSGlassImage';
 import { preferenceEngine } from '../lib/preferenceEngine';
 import { Venue } from '../lib/recommendationEngine';
@@ -248,7 +248,13 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
   return (
     <motion.div className="fixed inset-0 z-[400] flex flex-col justify-end isolate pointer-events-none">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/60 backdrop-blur-md pointer-events-auto" onClick={onClose} />
-      <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 300 }} className={`fixed bottom-0 w-full h-[95vh] rounded-t-[32px] overflow-hidden shadow-2xl flex flex-col pointer-events-auto ${tokens.surface}`}>
+      <motion.div
+        variants={prefersReducedMotion ? undefined : sheetVariants}
+        initial={prefersReducedMotion ? false : "hidden"}
+        animate={prefersReducedMotion ? false : "visible"}
+        exit={prefersReducedMotion ? false : "exit"}
+        className={`fixed bottom-0 w-full h-[95vh] rounded-t-[32px] overflow-hidden shadow-2xl flex flex-col pointer-events-auto ${tokens.surface}`}
+      >
           <div className="absolute top-0 left-0 right-0 z-50 p-4 flex justify-between items-center pointer-events-none">
               <button onClick={onClose} className="pointer-events-auto size-10 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white hover:bg-black/60 active:scale-95 transition-all"><span className="material-symbols-outlined">expand_more</span></button>
               <div className="flex gap-2 pointer-events-auto">
@@ -257,7 +263,13 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
               </div>
           </div>
           <motion.div style={{ y: imageY, opacity: imageOpacity }} className="absolute top-0 w-full h-[45vh] z-0"><IOSGlassImage src={displayImage} alt={place.name} className="w-full h-full object-cover" priority={true} /><div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-[#050505]" /></motion.div>
-          <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 no-scrollbar flex flex-col" {...swipeHandlers}>
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto overflow-x-hidden relative z-10 no-scrollbar flex flex-col"
+            style={{ willChange: 'transform', WebkitOverflowScrolling: 'touch' }}
+            {...swipeHandlers}
+          >
              <div className="w-full h-[38vh] shrink-0" />
              <div className={`${tokens.surface} min-h-[60vh] rounded-t-[32px] relative px-6 pb-sheet-safe border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.8)]`}>
                  <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-4 mb-6" />
@@ -282,30 +294,36 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
                         </AnimatePresence>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
-                        <button
+                        <motion.button
                           type="button"
                           disabled={reportingSignal !== null}
                           onClick={() => handleCrowdReport('quiet')}
+                          whileTap={prefersReducedMotion ? undefined : { scale: 0.92, y: 2 }}
+                          transition={prefersReducedMotion ? undefined : springs.bouncy}
                           className={`rounded-xl border px-2 py-2 text-xs font-bold transition-colors ${tokens.border} bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-60`}
                         >
                           Quiet
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
                           type="button"
                           disabled={reportingSignal !== null}
                           onClick={() => handleCrowdReport('vibes')}
+                          whileTap={prefersReducedMotion ? undefined : { scale: 0.92, y: 2 }}
+                          transition={prefersReducedMotion ? undefined : springs.bouncy}
                           className={`rounded-xl border px-2 py-2 text-xs font-bold transition-colors ${tokens.border} bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20 disabled:opacity-60`}
                         >
                           Buzzing
-                        </button>
-                        <button
+                        </motion.button>
+                        <motion.button
                           type="button"
                           disabled={reportingSignal !== null}
                           onClick={() => handleCrowdReport('packed')}
+                          whileTap={prefersReducedMotion ? undefined : { scale: 0.92, y: 2 }}
+                          transition={prefersReducedMotion ? undefined : springs.bouncy}
                           className={`rounded-xl border px-2 py-2 text-xs font-bold transition-colors ${tokens.border} bg-red-500/10 text-red-300 hover:bg-red-500/20 disabled:opacity-60`}
                         >
                           Packed
-                        </button>
+                        </motion.button>
                       </div>
                     </div>
                  </div>

@@ -98,10 +98,11 @@ export const SavedPlacesSheet: React.FC<SavedPlacesSheetProps> = ({ isOpen, onCl
                     <p className="text-xs">Tap the heart on any place to save it here.</p>
                 </div>
             ) : (
-                savedVenues.map(venue => (
+                savedVenues.map((venue, index) => (
                     <VenueCard 
                         key={venue.id} 
                         venue={venue} 
+                        index={index}
                         onClick={() => {}} // Could open detail
                         // Fixed type mismatch: casting Venue to Place for onNavigateTo prop
                         onNavigate={() => onNavigateTo(venue as any as Place)}

@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion, Variants } from 'framer-motion';
-import { MotionTokens } from '../../utils/animations';
+import { prefersReducedMotion } from '../../utils/animations';
 
 // Single source of truth for the Where2 brand mark. Do not restyle per-screen.
 
@@ -24,7 +24,7 @@ const coreVariants: Variants = {
       "0 0 4px rgba(159,80,255,0.6)"
     ],
     transition: {
-      duration: MotionTokens.fast, 
+      duration: 2.0,
       ease: "easeInOut",
       repeat: Infinity,
     }
@@ -37,7 +37,7 @@ const auraVariants: Variants = {
     opacity: [0.4, 0.6, 0.4],
     scale: [1.1, 1.25, 1.1], 
     transition: {
-      duration: MotionTokens.medium,
+      duration: 4.0,
       ease: "easeOut",
       repeat: Infinity,
     }
@@ -64,8 +64,8 @@ export const TwoMark = React.memo<TwoMarkProps>(({ size = 18, className = '', in
             filter: `blur(${auraBlur}px)`,
             opacity: intensity 
         }}
-        variants={auraVariants}
-        animate="animate"
+        variants={prefersReducedMotion ? undefined : auraVariants}
+        animate={prefersReducedMotion ? undefined : "animate"}
       >
         2
       </motion.div>
@@ -78,8 +78,8 @@ export const TwoMark = React.memo<TwoMarkProps>(({ size = 18, className = '', in
             filter: `blur(${coreBlur}px)`,
             opacity: intensity 
         }}
-        variants={coreVariants}
-        animate="animate"
+        variants={prefersReducedMotion ? undefined : coreVariants}
+        animate={prefersReducedMotion ? undefined : "animate"}
       >
         2
       </motion.div>

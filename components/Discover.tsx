@@ -826,13 +826,14 @@ export const Discover: React.FC<DiscoverProps> = ({
                             </div>
                         </div>
                     )}
-                    {venues.map((item) => {
+                    {venues.map((item, index) => {
                         const s = scores.find(sc => sc.venueId === item.id);
                         return (
                             <VenueCard 
                                 key={item.id}
                                 venue={item}
                                 recommendationScore={s}
+                                index={index}
                                 onClick={() => setSelectedPlace(item as any as Place)}
                                 onNavigate={() => openTravelSheet(item)}
                             />

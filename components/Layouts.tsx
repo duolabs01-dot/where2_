@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, TouchEvent } from 'react';
 import { motion, AnimatePresence, HTMLMotionProps } from 'framer-motion';
-import { pageVariants, pageTransition, tapAnimation, MotionTokens } from '../utils/animations';
+import { pageVariants, springs, prefersReducedMotion } from '../utils/animations';
 
 // --- Typography Components ---
 interface TextProps {
@@ -42,11 +42,10 @@ export const Caption: React.FC<TextProps> = ({ children, className = '' }) => (
 // --- Page Wrapper for Transitions ---
 export const PageWrapper: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
   <motion.div
-    initial="initial"
-    animate="in"
-    exit="out"
-    variants={pageVariants}
-    transition={pageTransition}
+    initial={prefersReducedMotion ? false : "initial"}
+    animate={prefersReducedMotion ? false : "in"}
+    exit={prefersReducedMotion ? false : "out"}
+    variants={prefersReducedMotion ? undefined : pageVariants}
     className={`h-full w-full ${className}`}
   >
     {children}
@@ -182,7 +181,9 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({ onRefresh, childre
         className="flex-1 overflow-y-auto no-scrollbar relative"
         style={{ 
           transform: `translateY(${Math.max(pullDistance, isRefreshing ? 60 : 0)}px)`,
-          transition: isRefreshing ? 'transform 0.2s cubic-bezier(0,0,0.2,1)' : 'transform 0.1s ease-out'
+          transition: isRefreshing ? 'transform 0.2s cubic-bezier(0,0,0.2,1)' : 'transform 0.1s ease-out',
+          willChange: 'transform',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         {children}
@@ -276,14 +277,14 @@ export const IOSFAB: React.FC<{ onClick?: () => void; children: React.ReactNode;
   <div className={`relative z-50 ${className}`}>
     <motion.button 
       onClick={onClick}
-      whileTap={{ scale: MotionTokens.pressScale }}
-      transition={MotionTokens.spring}
+      whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
+      transition={prefersReducedMotion ? undefined : springs.micro}
       className="relative w-16 h-16 bg-gradient-to-br from-purple-600 to-purple-800 rounded-full shadow-xl shadow-purple-500/30 flex items-center justify-center text-white text-xl font-bold overflow-hidden border border-white/10"
     >
       {/* Aura Bloom Idle Animation */}
       <motion.div 
         animate={{ opacity: [0.3, 0.6, 0.3] }}
-        transition={{ duration: MotionTokens.medium, repeat: Infinity, ease: "easeInOut" }}
+        transition={{ duration: 4.0, repeat: Infinity, ease: "easeInOut" }}
         className="absolute inset-0 bg-black/20 rounded-full pointer-events-none" 
       />
       <div className="relative z-10 flex items-center justify-center">
@@ -359,8 +360,8 @@ export const PrimaryButton = ({
   ...props 
 }: ButtonProps) => (
   <motion.button 
-    whileTap={tapAnimation}
-    transition={MotionTokens.spring}
+    whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
+    transition={prefersReducedMotion ? undefined : springs.micro}
     className={`
       ${fullWidth ? 'w-full' : ''}
       min-h-[48px] 
