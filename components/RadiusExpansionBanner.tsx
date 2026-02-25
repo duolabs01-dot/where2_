@@ -2,9 +2,11 @@
 import React from 'react';
 
 interface RadiusExpansionBannerProps {
-  expansionCount: number;
-  finalRadius: number; // in meters
-  usedFallback: boolean;
+  expandedLabel?: string | null;
+  baseRadius?: number;
+  expansionCount?: number;
+  finalRadius?: number; // in meters
+  usedFallback?: boolean;
   isLaterMode?: boolean;
   customMessage?: string;
   onResetFilters?: () => void;
@@ -12,9 +14,11 @@ interface RadiusExpansionBannerProps {
 }
 
 export const RadiusExpansionBanner: React.FC<RadiusExpansionBannerProps> = ({ 
-  expansionCount, 
-  finalRadius, 
-  usedFallback,
+  expandedLabel,
+  baseRadius,
+  expansionCount = 0, 
+  finalRadius = 0, 
+  usedFallback = false,
   isLaterMode = false,
   customMessage,
   onResetFilters,
@@ -27,6 +31,23 @@ export const RadiusExpansionBanner: React.FC<RadiusExpansionBannerProps> = ({
           <span className="material-symbols-outlined text-yellow-400 text-xl shrink-0 mt-0.5">radar</span>
           <div className="text-gray-300 text-sm leading-relaxed">
             {customMessage}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Backward-compatible entrypoint used by Discover.
+  if (expandedLabel) {
+    return (
+      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-4 animate-in fade-in slide-in-from-top-2">
+        <div className="flex items-start gap-3">
+          <span className="material-symbols-outlined text-yellow-400 text-xl shrink-0 mt-0.5">radar</span>
+          <div>
+            <p className="font-bold text-yellow-400 text-sm">{expandedLabel}</p>
+            <div className="text-gray-400 text-xs mt-1 leading-relaxed">
+              Search radius is currently {(baseRadius || 0) >= 1000 ? `${Math.round((baseRadius || 0) / 1000)}km` : `${baseRadius || 0}m`}.
+            </div>
           </div>
         </div>
       </div>
