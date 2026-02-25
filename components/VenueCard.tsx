@@ -254,7 +254,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           whileTap={shouldAnimate ? { scale: 0.95, transition: springs.micro } : undefined}
           className="mt-2 w-full py-2.5 rounded-xl bg-black/50 text-white font-bold text-sm border border-white/10 hover:bg-black/70 transition-colors"
         >
-          Go There ->
+          Go There &rarr;
         </motion.button>
       </div>
     </motion.div>
