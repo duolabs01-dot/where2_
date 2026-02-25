@@ -36,6 +36,8 @@ export const getCATNow = (): Date => {
 export interface PlaceOpenNowStatus {
     is_open: boolean;
     open_hours_unknown: boolean;
+    opens_at?: string;
+    opens_today?: boolean;
 }
 
 export const isPlaceOpenNow = (place: any): PlaceOpenNowStatus => {
@@ -43,28 +45,30 @@ export const isPlaceOpenNow = (place: any): PlaceOpenNowStatus => {
     if (place.status === 'CLOSED') return { is_open: false, open_hours_unknown: false };
     if (place.status === 'OPEN') return { is_open: true, open_hours_unknown: false };
     
-    // Check hours relative to CAT
-    const nowCAT = getCATNow();
-    const currentTimeMinutes = nowCAT.getHours() * 60 + nowCAT.getMinutes();
-    
-    if (place.opening_time && place.closing_time) {
-        const [oh, om] = place.opening_time.split(':').map(Number);
-        const [ch, cm] = place.closing_time.split(':').map(Number);
-        const start = oh * 60 + om;
-        const end = ch * 60 + cm;
-        
-        if (end < start) { // Handles venues open past midnight (e.g., 18:00 to 02:00)
-            return { is_open: currentTimeMinutes >= start || currentTimeMinutes <= end, open_hours_unknown: false };
-        }
-        return { is_open: currentTimeMinutes >= start && currentTimeMinutes <= end, open_hours_unknown: false };
-    }
-
-    // If no status + no opening/closing data, don't assume "open".
-    if (!place.status && !place.opening_time && !place.closing_time) {
+    if (!place.opening_time || !place.closing_time) {
         return { is_open: false, open_hours_unknown: true };
     }
-
-    return { is_open: true, open_hours_unknown: false };
+    
+    const nowCAT = getCATNow();
+    const currentMins = nowCAT.getHours() * 60 + nowCAT.getMinutes();
+    const [oh, om] = place.opening_time.split(':').map(Number);
+    const [ch, cm] = place.closing_time.split(':').map(Number);
+    const start = oh * 60 + om;
+    const end = ch * 60 + cm;
+    
+    const is_open = end < start 
+        ? (currentMins >= start || currentMins <= end)
+        : (currentMins >= start && currentMins <= end);
+    
+    if (is_open) return { is_open: true, open_hours_unknown: false };
+    
+    const opens_today = currentMins < start;
+    return {
+        is_open: false,
+        open_hours_unknown: false,
+        opens_at: place.opening_time,
+        opens_today,
+    };
 };
 
 export const checkTimeFilter = (place: any, filter: string) => {

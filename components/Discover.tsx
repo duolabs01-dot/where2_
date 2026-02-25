@@ -785,17 +785,27 @@ export const Discover: React.FC<DiscoverProps> = ({
             ) : venues.length > 0 ? (
                 <>
                     {isLaterMode && (
-                        <div className="text-center py-4 px-6 bg-white/5 rounded-2xl border border-white/5 mb-6">
-                            <span className="text-2xl block mb-2">😅</span>
-                            <h3 className="text-white font-bold text-lg">Nothing’s happening nearby right now</h3>
-                            <p className="text-gray-400 text-sm mt-1">Want to plan ahead or see the wider city vibe?</p>
-                            <div className="flex gap-2 mt-4 justify-center">
-                                <button onClick={handleMapAction} className="bg-primary text-black font-bold px-4 py-2 rounded-xl text-xs hover:bg-white transition-colors">
-                                    Check the Map
-                                </button>
-                                <button className="bg-white/10 text-white font-bold px-4 py-2 rounded-xl text-xs border border-white/5">
-                                    Viewing Later Options
-                                </button>
+                        <div className="text-left py-4 px-6 bg-white/5 rounded-2xl border border-white/5 mb-6">
+                            <h3 className="text-white font-bold text-lg mb-1">Nothing open yet — but these open tonight:</h3>
+                            <p className="text-gray-400 text-sm mb-3">Set a reminder or check back closer to opening time.</p>
+                            <div className="flex flex-col gap-3">
+                              {venues.slice(0, 4).map((v) => {
+                                const status = isPlaceOpenNow(v);
+                                const label = status.opens_at
+                                  ? (status.opens_today ? `Opens ${status.opens_at}` : `Opens Tomorrow ${status.opens_at}`)
+                                  : 'Closed';
+                                return (
+                                  <div key={v.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-bold text-white truncate">{v.name}</p>
+                                      <p className="text-[11px] text-gray-400 truncate">{v.category}</p>
+                                    </div>
+                                    <span className="text-[11px] px-2 py-1 rounded-full bg-amber-500/15 text-amber-200 border border-amber-500/30">
+                                      {label}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
                         </div>
                     )}

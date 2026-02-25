@@ -148,8 +148,11 @@ export const VenueCard: React.FC<VenueCardProps> = ({
     if (openStatus.is_open) {
       return { label: 'Open Now', classes: 'bg-green-500/15 text-green-200 border-green-500/30' };
     }
-    if (!openStatus.is_open && venue.opening_time) {
-      return { label: `Opens ${venue.opening_time}`, classes: 'bg-amber-500/15 text-amber-200 border-amber-500/30' };
+    if (!openStatus.is_open && openStatus.opens_at) {
+      if (openStatus.opens_today) {
+        return { label: `Opens ${openStatus.opens_at}`, classes: 'bg-amber-500/15 text-amber-200 border-amber-500/30' };
+      }
+      return { label: `Opens Tomorrow ${openStatus.opens_at}`, classes: 'bg-gray-500/20 text-gray-200 border-gray-500/30' };
     }
     return { label: 'Closed', classes: 'bg-red-500/15 text-red-200 border-red-500/30' };
   })();

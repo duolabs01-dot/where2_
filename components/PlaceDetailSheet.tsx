@@ -239,11 +239,19 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
   const rating = 4.8; 
   const distance = place.distance || 'Nearby';
 
-  const timeStatus = openStatus.open_hours_unknown
-    ? { label: 'Hours not confirmed', color: 'text-amber-300', sub: 'Please confirm before visiting' }
-    : openStatus.is_open
-      ? { label: 'Open', color: 'text-green-400', sub: `Until ${formatTimeDisplay(place.closing_time) || 'late'}` }
-      : { label: 'Closed', color: 'text-red-400', sub: `Opens ${formatTimeDisplay(place.opening_time) || 'soon'}` };
+  const timeStatus = (() => {
+    if (openStatus.open_hours_unknown) {
+      return { label: 'Hours TBC', color: 'text-amber-300', sub: 'Please confirm before visiting' };
+    }
+    if (openStatus.is_open) {
+      return { label: 'Open Now', color: 'text-green-400', sub: `Until ${formatTimeDisplay(place.closing_time) || 'late'}` };
+    }
+    if (openStatus.opens_at) {
+      const opensText = openStatus.opens_today ? `Opens at ${openStatus.opens_at}` : `Opens Tomorrow ${openStatus.opens_at}`;
+      return { label: opensText, color: 'text-amber-300', sub: '' };
+    }
+    return { label: 'Closed', color: 'text-red-400', sub: '' };
+  })();
 
   return (
     <motion.div className="fixed inset-0 z-[400] flex flex-col justify-end isolate pointer-events-none">
@@ -273,10 +281,16 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
              <div className="w-full h-[38vh] shrink-0" />
              <div className={`${tokens.surface} min-h-[60vh] rounded-t-[32px] relative px-6 pb-sheet-safe border-t border-white/10 shadow-[0_-10px_40px_rgba(0,0,0,0.8)]`}>
                  <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mt-4 mb-6" />
-                 <div className="mb-6">
-                    <h1 className="text-3xl font-display font-bold text-white leading-tight mb-1">{place.name}</h1>
-                    <div className="flex items-center gap-2 text-sm font-medium text-gray-400"><span>{place.category}</span><span className="size-1 rounded-full bg-gray-600" /><span>{place.city}</span>{place.is_verified && <span className="material-symbols-outlined text-blue-400 text-sm filled-icon ml-1">verified</span>}</div>
-                    <div className={`mt-4 p-3 rounded-2xl border ${tokens.border} ${tokens.surface2}`}>
+                <div className="mb-6">
+                   <h1 className="text-3xl font-display font-bold text-white leading-tight mb-1">{place.name}</h1>
+                   <div className="flex items-center gap-2 text-sm font-medium text-gray-400"><span>{place.category}</span><span className="size-1 rounded-full bg-gray-600" /><span>{place.city}</span>{place.is_verified && <span className="material-symbols-outlined text-blue-400 text-sm filled-icon ml-1">verified</span>}</div>
+                   <div className="mt-3 w-full">
+                     <div className="w-full text-center text-sm font-bold px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-white flex items-center justify-center gap-2">
+                       <span className="material-symbols-outlined text-base">{openStatus.is_open ? 'schedule' : 'av_timer'}</span>
+                       <span>{timeStatus.label}</span>
+                     </div>
+                   </div>
+                   <div className={`mt-4 p-3 rounded-2xl border ${tokens.border} ${tokens.surface2}`}>
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Crowd right now</p>
                         <AnimatePresence mode="wait">
