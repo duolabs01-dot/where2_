@@ -19,7 +19,8 @@
   --iphone15-w: 393px;
   --iphone15-h: 852px;
   --bottom-nav-h: 88px;
-  --bottom-nav-safe: calc(88px + env(safe-area-inset-bottom));
+  --bottom-nav-safe: calc(80px + env(safe-area-inset-bottom));
+  --top-safe: env(safe-area-inset-top);
 }
 
 html.theme-matrix {
@@ -60,10 +61,10 @@ body,
   overflow: hidden;
   margin: 0;
   padding: 0;
+  background: transparent;
 }
 
 body {
-  padding-top: env(safe-area-inset-top);
   color: var(--color-text-main);
   background:
     radial-gradient(1200px 700px at 15% -10%, rgba(159, 80, 255, 0.18), transparent 60%),
@@ -123,6 +124,10 @@ body {
 
 .main-scroll-host .overflow-y-auto {
   padding-bottom: calc(var(--bottom-nav-h) + env(safe-area-inset-bottom)) !important;
+}
+
+[data-scroll-host="main"] {
+  padding-top: env(safe-area-inset-top);
 }
 
 .liquid-glass {

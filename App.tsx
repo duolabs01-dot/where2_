@@ -179,7 +179,7 @@ const AppShell: React.FC = () => {
   );
 
   return (
-    <div className="h-[100dvh] w-full bg-background text-white overflow-hidden relative">
+    <div className="fixed inset-0 bg-background text-white overflow-hidden">
       {showWelcome ? (
         <WelcomeScreen
           onComplete={handleWelcomeComplete}
@@ -188,7 +188,7 @@ const AppShell: React.FC = () => {
         />
       ) : (
         <>
-          <div data-scroll-host="main" className="h-full overflow-y-auto no-scrollbar" style={{ paddingBottom: 'var(--bottom-nav-safe)' }}>
+          <div data-scroll-host="main" className="h-full overflow-y-auto no-scrollbar" style={{ paddingBottom: 'var(--bottom-nav-safe)', paddingTop: 'env(safe-area-inset-top)' }}>
             {activeTab === 'Discover' && (
               <Discover
                 userCity="Johannesburg"
