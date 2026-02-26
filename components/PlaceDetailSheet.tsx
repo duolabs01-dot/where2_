@@ -34,6 +34,7 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
   const [newPlanTitle, setNewPlanTitle] = useState('');
   const [crowdReportThanks, setCrowdReportThanks] = useState(false);
   const [reportingSignal, setReportingSignal] = useState<CrowdSignal | null>(null);
+  const [crowdConsensus, setCrowdConsensus] = useState<CrowdSignal | null>(null);
   const [showMapSheet, setShowMapSheet] = useState(false);
   const thanksTimerRef = useRef<number | null>(null);
   
@@ -52,6 +53,42 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
     fetchReviews();
     checkSaveState();
     setCrowdReportThanks(false);
+    let cancelled = false;
+    const fetchConsensus = async () => {
+      setCrowdConsensus(null);
+      try {
+        const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+        const { data, error } = await supabase
+          .from('crowd_reports')
+          .select('signal, created_at')
+          .eq('place_id', place.id)
+          .gt('created_at', since)
+          .limit(500);
+        if (cancelled) return;
+        if (error || !data || data.length === 0) {
+          setCrowdConsensus(null);
+          return;
+        }
+        const counts: Record<CrowdSignal, number> = { quiet: 0, vibes: 0, packed: 0 };
+        for (const row of data) {
+          const sig = row.signal as CrowdSignal;
+          if (sig in counts) counts[sig] += 1;
+        }
+        const total = counts.quiet + counts.vibes + counts.packed;
+        if (total < 2) {
+          setCrowdConsensus(null);
+          return;
+        }
+        const sorted = (Object.keys(counts) as CrowdSignal[]).sort((a, b) => counts[b] - counts[a]);
+        setCrowdConsensus(counts[sorted[0]] > 0 ? sorted[0] : null);
+      } catch (_err) {
+        if (!cancelled) setCrowdConsensus(null);
+      }
+    };
+    fetchConsensus();
+    return () => {
+      cancelled = true;
+    };
   }, [place]);
 
   useEffect(() => {
@@ -307,6 +344,9 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
                           )}
                         </AnimatePresence>
                       </div>
+                      {crowdConsensus && (
+                        <p className="text-xs text-gray-400 mb-2">Current vibe: {crowdConsensus === 'vibes' ? 'Buzzing' : crowdConsensus.charAt(0).toUpperCase() + crowdConsensus.slice(1)}</p>
+                      )}
                       <div className="grid grid-cols-3 gap-2">
                         <motion.button
                           type="button"

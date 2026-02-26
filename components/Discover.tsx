@@ -784,24 +784,25 @@ export const Discover: React.FC<DiscoverProps> = ({
                 </div>
             ) : venues.length > 0 ? (
                 <>
-                    {false && isLaterMode && (
-                        <div className="text-left py-4 px-6 bg-white/5 rounded-2xl border border-white/5 mb-6">
-                            <h3 className="text-white font-bold text-lg mb-1">Nothing open yet — but these open tonight:</h3>
-                            <p className="text-gray-400 text-sm mb-3">Set a reminder or check back closer to opening time.</p>
-                            <div className="flex flex-col gap-3">
-                              {venues.slice(0, 4).map((v) => {
+                    {isLaterMode && venues.length > 0 && (
+                        <div className="text-left py-4 px-4 bg-white/5 rounded-2xl border border-white/5 mb-4">
+                            <h3 className="text-white font-bold text-base mb-1">Nothing open right now — opens later:</h3>
+                            <div className="flex flex-col gap-2 mt-3">
+                              {venues.slice(0, 3).map((v) => {
                                 const status = isPlaceOpenNow(v);
-                                const label = status.opens_at
-                                  ? (status.opens_today ? `Opens ${status.opens_at}` : `Opens Tomorrow ${status.opens_at}`)
-                                  : 'Closed';
+                                const timeLabel = status.opens_at
+                                  ? (status.opens_today ? `Opens at ${status.opens_at}` : `Opens tomorrow ${status.opens_at}`)
+                                  : status.open_hours_unknown
+                                    ? 'Hours TBC'
+                                    : 'Check their socials';
                                 return (
                                   <div key={v.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                                     <div className="min-w-0">
                                       <p className="text-sm font-bold text-white truncate">{v.name}</p>
                                       <p className="text-[11px] text-gray-400 truncate">{v.category}</p>
                                     </div>
-                                    <span className="text-[11px] px-2 py-1 rounded-full bg-amber-500/15 text-amber-200 border border-amber-500/30">
-                                      {label}
+                                    <span className="text-[11px] px-2 py-1 rounded-full bg-amber-500/15 text-amber-200 border border-amber-500/30 whitespace-nowrap">
+                                      {timeLabel}
                                     </span>
                                   </div>
                                 );

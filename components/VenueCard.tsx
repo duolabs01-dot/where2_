@@ -49,6 +49,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
     let cancelled = false;
 
     const fetchCrowdConsensus = async () => {
+      setCrowdConsensus(null);
       try {
         const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
         const { data, error } = await supabase
@@ -69,6 +70,12 @@ export const VenueCard: React.FC<VenueCardProps> = ({
         for (const row of data) {
           const signal = row.signal as CrowdSignal;
           if (signal in counts) counts[signal] += 1;
+        }
+
+        const totalReports = counts.quiet + counts.vibes + counts.packed;
+        if (totalReports < 2) {
+          setCrowdConsensus(null);
+          return;
         }
 
         const sorted = (Object.keys(counts) as CrowdSignal[]).sort((a, b) => counts[b] - counts[a]);
