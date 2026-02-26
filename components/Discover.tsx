@@ -784,7 +784,7 @@ export const Discover: React.FC<DiscoverProps> = ({
                 </div>
             ) : venues.length > 0 ? (
                 <>
-                    {isLaterMode && (
+                    {false && isLaterMode && (
                         <div className="text-left py-4 px-6 bg-white/5 rounded-2xl border border-white/5 mb-6">
                             <h3 className="text-white font-bold text-lg mb-1">Nothing open yet — but these open tonight:</h3>
                             <p className="text-gray-400 text-sm mb-3">Set a reminder or check back closer to opening time.</p>
@@ -811,16 +811,18 @@ export const Discover: React.FC<DiscoverProps> = ({
                     )}
                     {venues.length > 0 && (
                       <>
-                        <VenueCard
-                          key={venues[0].id}
-                          venue={venues[0]}
-                          recommendationScore={scores.find(sc => sc.venueId === venues[0].id)}
-                          index={0}
-                          heightClass="h-[280px]"
-                          badge="Top Pick Tonight"
-                          onClick={() => setSelectedPlace(venues[0] as any as Place)}
-                          onNavigate={() => openTravelSheet(venues[0])}
-                        />
+                        {!isLaterMode && (
+                          <VenueCard
+                            key={venues[0].id}
+                            venue={venues[0]}
+                            recommendationScore={scores.find(sc => sc.venueId === venues[0].id)}
+                            index={0}
+                            heightClass="h-[280px]"
+                            badge="Top Pick Tonight"
+                            onClick={() => setSelectedPlace(venues[0] as any as Place)}
+                            onNavigate={() => openTravelSheet(venues[0])}
+                          />
+                        )}
 
                         {friendActivity.length > 0 && (
                           <div className="mt-4 mb-2 px-1">
@@ -848,7 +850,7 @@ export const Discover: React.FC<DiscoverProps> = ({
                           </div>
                         )}
 
-                        {venues.slice(1).map((item, index) => {
+                        {venues.slice(isLaterMode ? 3 : 1).map((item, index) => {
                             const s = scores.find(sc => sc.venueId === item.id);
                             return (
                                 <VenueCard 
