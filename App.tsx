@@ -24,7 +24,7 @@ const AppShell: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [postOpen, setPostOpen] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [initialIntent, setInitialIntent] = useState<SearchIntent | null>(null);
   const pendingActionRef = useRef<(() => void) | null>(null);
   const prefetchedRef = useRef<{ venues: Venue[]; scores: VenueScore[] } | null>(null);
@@ -36,13 +36,19 @@ const AppShell: React.FC = () => {
     let mounted = true;
     initTheme();
 
-    const welcomed = localStorage.getItem('where2_welcomed');
-    setShowWelcome(!welcomed);
-
     const loadSession = async () => {
       const { data } = await supabase.auth.getSession();
       if (mounted) {
         setSession(data.session);
+        const shownThisSession = sessionStorage.getItem('where2_branding_shown');
+        if (!data.session) {
+          setShowWelcome(true);
+        } else if (!shownThisSession) {
+          setShowWelcome(true);
+          sessionStorage.setItem('where2_branding_shown', '1');
+        } else {
+          setShowWelcome(false);
+        }
       }
     };
 
@@ -60,7 +66,6 @@ const AppShell: React.FC = () => {
   const handleWelcomeComplete = useCallback((intent: SearchIntent) => {
     setInitialIntent(intent);
     setShowWelcome(false);
-    localStorage.setItem('where2_welcomed', 'true');
   }, []);
 
   // Prefetch for logged-in branding moment
