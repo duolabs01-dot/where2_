@@ -7,8 +7,8 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
-    "hours:verify": "node scripts/verify-operating-hours.mjs",
-    "hours:apply": "node scripts/verify-operating-hours.mjs --apply"
+    "hours:verify": "node --env-file=.env scripts/verify-operating-hours.mjs",
+    "hours:apply": "node --env-file=.env scripts/verify-operating-hours.mjs --apply"
   },
   "dependencies": {
     "@google/genai": "^1.39.0",

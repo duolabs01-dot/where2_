@@ -2,7 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Place } from '../../types';
 import { matchesCategoryFilters } from '../../lib/categoryFilter';
 import { haversineMeters } from './haversine';
-import { isOpenNowJhb } from './timeJhb';
+import { isPlaceOpenNow } from '../../lib/timeFilter'; // Use the new isPlaceOpenNow
 
 export const PRIMARY_WALK_RADIUS_M = 600; // 8-min walk @ 75m/min
 export const RIDE_EXPANSION_RADIUS_M = 1500; // ~5-min ride
@@ -102,7 +102,8 @@ export const runDiscovery = async ({
   const maxRadiusCap = Math.max(PRIMARY_WALK_RADIUS_M, Math.min(MAX_MAP_RADIUS_M, maxRadiusMeters));
   const radiusSteps = buildRadiusSteps(maxRadiusCap);
 
-  const { data, error } = await supabase.from('places').select('*').limit(500);
+  // Update Supabase query to select is_24_7 and join operating_hours
+  const { data, error } = await supabase.from('places').select('*, is_24_7, operating_hours(*)').limit(500);
   if (error) {
     throw new Error(error.message || 'Failed to fetch places');
   }
@@ -118,7 +119,8 @@ export const runDiscovery = async ({
     })
     .map((place) => {
       const distanceNumeric = haversineMeters(userLat, userLng, place.latitude!, place.longitude!);
-      const open_now = isOpenNowJhb(place.opening_time, place.closing_time);
+      // Update open_now calculation to use the new isPlaceOpenNow
+      const { is_open: open_now } = isPlaceOpenNow(place);
       return { ...place, distanceNumeric, open_now };
     })
     .filter((place) => place.distanceNumeric <= maxRadiusCap)

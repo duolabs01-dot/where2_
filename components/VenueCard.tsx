@@ -1,16 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../supabase';
-import { Venue, VenueScore } from '../lib/recommendationEngine';
-import { isPlaceOpenNow } from '../lib/timeFilter';
+import { Place, OperatingHour } from '../types'; // Import Place and OperatingHour
+import { DiscoveryVenue } from '../src/lib/discoveryEngine'; // Import DiscoveryVenue
+import { isPlaceOpenNow, formatTimeDisplay, getCATNow } from '../lib/timeFilter'; // Import formatTimeDisplay
 import { getPlaceImageUrl } from '../utils/placeholders';
 import { cardVariants, prefersReducedMotion, springs } from '../utils/animations';
 
 type CrowdSignal = 'quiet' | 'vibes' | 'packed';
 
 interface VenueCardProps {
-  venue: Venue;
-  recommendationScore?: VenueScore;
+  venue: DiscoveryVenue; // Change Place to DiscoveryVenue
+  recommendationScore?: { venueId: string; score: number; }; // Use direct type for VenueScore
   onClick: () => void;
   onNavigate: () => void;
   index?: number;
@@ -28,6 +29,13 @@ const crowdStyleMap: Record<CrowdSignal, string> = {
   quiet: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
   vibes: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
   packed: 'bg-red-500/10 text-red-300 border-red-500/20',
+};
+
+// Helper function to get day name from day of week (1=Mon, 7=Sun)
+const getDayName = (dayOfWeek: number) => {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const adjustedDay = dayOfWeek === 7 ? 0 : dayOfWeek; // Convert 1-7 (Mon-Sun) to 0-6 (Sun-Sat)
+  return days[adjustedDay];
 };
 
 export const VenueCard: React.FC<VenueCardProps> = ({
@@ -96,9 +104,9 @@ export const VenueCard: React.FC<VenueCardProps> = ({
   const images = useMemo(() => {
     const media = (venue as any).media as { url?: string }[] | undefined;
     const extra = media?.map((m) => m.url).filter(Boolean) ?? [];
-    const cover = venue.cover_image || getPlaceImageUrl(venue as any);
+    const cover = venue.cover_image || getPlaceImageUrl(venue); // Cast no longer needed
     const unique = Array.from(new Set([cover, ...extra].filter(Boolean))) as string[];
-    return unique.length > 0 ? unique : [getPlaceImageUrl(venue as any)];
+    return unique.length > 0 ? unique : [getPlaceImageUrl(venue)]; // Cast no longer needed
   }, [venue]);
 
   useEffect(() => {
@@ -149,17 +157,41 @@ export const VenueCard: React.FC<VenueCardProps> = ({
     : null;
 
   const statusBadge = (() => {
+    if (venue.is_24_7) {
+        return { label: 'Open 24/7', classes: 'bg-green-500/15 text-green-200 border-green-500/30' };
+    }
     if (openStatus.open_hours_unknown) {
-      return { label: 'Hours TBC', classes: 'bg-gray-500/20 text-gray-200 border-gray-500/30' };
+        return { label: 'Hours TBC', classes: 'bg-gray-500/20 text-gray-200 border-gray-500/30' };
     }
     if (openStatus.is_open) {
-      return { label: 'Open Now', classes: 'bg-green-500/15 text-green-200 border-green-500/30' };
+        // Find the current operating hour for the current open period
+        const currentOpenPeriod = openStatus.current_day_hours?.find(oh => {
+            const now = getCATNow();
+            const currentMinutes = now.getHours() * 60 + now.getMinutes();
+            const [openH, openM] = oh.open_time.split(':').map(Number);
+            const [closeH, closeM] = oh.close_time.split(':').map(Number);
+            const openMinutes = openH * 60 + openM;
+            const closeMinutes = closeH * 60 + closeM;
+
+            if (openMinutes <= closeMinutes) {
+                return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+            } else {
+                return currentMinutes >= openMinutes || currentMinutes < closeMinutes;
+            }
+        });
+
+        const closingTime = currentOpenPeriod?.close_time;
+        return { label: 'Open Now', classes: 'bg-green-500/15 text-green-200 border-green-500/30', sub: `Until ${formatTimeDisplay(closingTime) || 'late'}` };
     }
-    if (!openStatus.is_open && openStatus.opens_at) {
-      if (openStatus.opens_today) {
-        return { label: `Opens ${openStatus.opens_at}`, classes: 'bg-amber-500/15 text-amber-200 border-amber-500/30' };
-      }
-      return { label: `Opens Tomorrow ${openStatus.opens_at}`, classes: 'bg-gray-500/20 text-gray-200 border-gray-500/30' };
+    if (openStatus.opens_at) {
+        let opensText = `Opens ${formatTimeDisplay(openStatus.opens_at)}`;
+        if (openStatus.opens_today) {
+            opensText = `Opens today ${formatTimeDisplay(openStatus.opens_at)}`;
+        } else if (openStatus.next_opening_hours) {
+            const nextDayName = getDayName(openStatus.next_opening_hours.day_of_week);
+            opensText = `Opens ${nextDayName} ${formatTimeDisplay(openStatus.next_opening_hours.open_time)}`;
+        }
+        return { label: opensText, classes: 'bg-amber-500/15 text-amber-200 border-amber-500/30' };
     }
     return { label: 'Closed', classes: 'bg-red-500/15 text-red-200 border-red-500/30' };
   })();

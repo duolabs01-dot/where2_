@@ -286,23 +286,11 @@ export const VenueEditor: React.FC<VenueEditorProps> = ({ venue, onClose, onSave
             </div>
 
             {/* Hours */}
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500 uppercase">Opening</label>
-                    <input 
-                    type="time" 
-                    {...register('opening_time')}
-                    className={`w-full ${tokens.surface2} border ${tokens.border} rounded-xl p-3 text-white focus:border-primary`}
-                    />
-                </div>
-                <div className="space-y-1">
-                    <label className="text-xs font-bold text-gray-500 uppercase">Closing</label>
-                    <input 
-                    type="time" 
-                    {...register('closing_time')}
-                    className={`w-full ${tokens.surface2} border ${tokens.border} rounded-xl p-3 text-white focus:border-primary`}
-                    />
-                </div>
+            <div className="flex flex-col justify-center space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" {...register('is_24_7')} className="rounded bg-white/10 border-white/20 text-primary focus:ring-primary" />
+                    <span className="text-sm text-white">Open 24/7</span>
+                </label>
             </div>
 
             {/* Status & Verification */}

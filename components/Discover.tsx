@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '../supabase';
 import { Place } from '../types';
-import { Venue, RecommendationEngine, VenueScore } from '../lib/recommendationEngine';
+import { DiscoveryVenue } from '../src/lib/discoveryEngine';
+import { RecommendationEngine, VenueScore } from '../lib/recommendationEngine'; // Import DiscoveryVenue
 import { PageWrapper, PullToRefresh, GlassSheet, CardSkeleton } from './Layouts';
 import { PlaceDetailSheet } from './PlaceDetailSheet';
 import { usePreciseLocation, calculateDistance } from '../lib/location';
@@ -28,7 +29,7 @@ interface DiscoverProps {
   session: Session | null;
   initialIntent: any; 
   onSwitchToMap?: () => void;
-  prefetchedVenues?: Venue[];
+  prefetchedVenues?: DiscoveryVenue[];
   prefetchedScores?: VenueScore[];
 }
 
@@ -117,7 +118,7 @@ export const Discover: React.FC<DiscoverProps> = ({
   const { state: exploreState, setOrigin, setFocusedPlace } = useExploreState();
   const { state: filterState, setRadiusMeters, setOpenNowOnly, toggleCategory, setCategories, setMode, resetFilters, setMusicVibe } = useFilters();
 
-  const [venues, setVenues] = useState<Venue[]>([]);
+  const [venues, setVenues] = useState<DiscoveryVenue[]>([]);
   const [scores, setScores] = useState<VenueScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
@@ -152,6 +153,13 @@ export const Discover: React.FC<DiscoverProps> = ({
 
   const { location, loading: locationLoading, strategy } = usePreciseLocation();
   const { trigger } = useHaptic();
+
+  // Helper function to get day name from day of week (1=Mon, 7=Sun)
+  const getDayName = (dayOfWeek: number) => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const adjustedDay = dayOfWeek === 7 ? 0 : dayOfWeek; // Convert 1-7 (Mon-Sun) to 0-6 (Sun-Sat)
+    return days[adjustedDay];
+  };
   
   const timeLabel = getSmartTimeLabel();
   const vibeSentence = getVibeSentence(); 
@@ -358,17 +366,17 @@ export const Discover: React.FC<DiscoverProps> = ({
             searchQuery: currentQuery
         });
 
-        let finalVenues = rawResult.venues;
+        let finalVenues: DiscoveryVenue[] = rawResult.venues;
         let finalScores = rawResult.scores;
 
         // 2. Client-Side Processing & Adaptive Logic
         // Calculate Distance
-        finalVenues = finalVenues.map(v => {
-            let dist = v.dist_meters || 0;
+        finalVenues = finalVenues.map((v: Place) => {
+            let dist = 0;
             if (exploreState.origin.mode === 'gps' && v.latitude && v.longitude) {
                 dist = calculateDistance(exploreState.origin.lat, exploreState.origin.lng, v.latitude, v.longitude) * 1000;
             }
-            return { ...v, distanceNumeric: dist };
+            return { ...v, distanceNumeric: dist } as DiscoveryVenue;
         });
 
         // 3. Apply Filtering Logic
@@ -421,7 +429,7 @@ export const Discover: React.FC<DiscoverProps> = ({
         const enriched = await enrichPlacesWithImages(finalVenues as Place[]);
         const merged = enriched.map(e => {
             const original = finalVenues.find(v => v.id === e.id);
-            return { ...original, ...e } as Venue;
+            return { ...original, ...e } as DiscoveryVenue;
         });
 
         setVenues(merged);
@@ -505,7 +513,7 @@ export const Discover: React.FC<DiscoverProps> = ({
 
     const { data, error } = await supabase
       .from('places')
-      .select('*')
+      .select('*, is_24_7, operating_hours(*)')
       .eq('id', placeId)
       .single();
 
@@ -790,11 +798,25 @@ export const Discover: React.FC<DiscoverProps> = ({
                             <div className="flex flex-col gap-2 mt-3">
                               {venues.slice(0, 3).map((v) => {
                                 const status = isPlaceOpenNow(v);
-                                const timeLabel = status.opens_at
-                                  ? (status.opens_today ? `Opens at ${status.opens_at}` : `Opens tomorrow ${status.opens_at}`)
-                                  : status.open_hours_unknown
-                                    ? 'Hours TBC'
-                                    : 'Check their socials';
+                                let timeLabel;
+                                if (v.is_24_7) {
+                                  timeLabel = 'Open 24/7';
+                                } else if (status.open_hours_unknown) {
+                                  timeLabel = 'Hours TBC';
+                                } else if (status.is_open) {
+                                  timeLabel = 'Open Now'; // Should not typically happen in isLaterMode, but for completeness
+                                } else if (status.opens_at) {
+                                  if (status.opens_today) {
+                                    timeLabel = `Opens today ${status.opens_at}`;
+                                  } else if (status.next_opening_hours) {
+                                    const nextDayName = getDayName(status.next_opening_hours.day_of_week);
+                                    timeLabel = `Opens ${nextDayName} ${status.next_opening_hours.open_time.substring(0, 5)}`;
+                                  } else {
+                                    timeLabel = `Opens ${status.opens_at}`; // Fallback
+                                  }
+                                } else {
+                                  timeLabel = 'Closed';
+                                }
                                 return (
                                   <div key={v.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                                     <div className="min-w-0">

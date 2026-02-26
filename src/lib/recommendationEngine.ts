@@ -1,32 +1,11 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { isPlaceOpenNow } from './timeFilter';
-
-export interface Venue {
-    id: string;
-    name: string;
-    category: string;
-    city: string;
-    latitude: number;
-    longitude: number;
-    status: string;
-    opening_time: string;
-    closing_time: string;
-    price_level: number;
-    dist_meters?: number;
-    distanceNumeric?: number;
-    distance?: string; // Added for compatibility
-    vibe_tags?: string[];
-    description?: string;
-    address?: string;
-    is_verified?: boolean;
-    popular_items?: any[];
-    cover_image?: string;
-}
+import { isPlaceOpenNow } from '../../lib/timeFilter'; // Corrected import path
+import { Place } from '../../types'; // Import the Place type
 
 export interface VenueScore { venueId: string; score: number; }
 
-const matchMusicVibe = (venue: Venue, vibe: string | null): boolean => {
+const matchMusicVibe = (venue: Place, vibe: string | null): boolean => { // Changed Venue to Place
     if (!vibe || vibe === 'Any') return true;
     
     const normalizedVibe = vibe.toLowerCase();
@@ -60,7 +39,8 @@ export class RecommendationEngine {
     constructor(private supabase: SupabaseClient) {}
 
     async getTopPicks(options: any) {
-        let query = this.supabase.from('places').select('*');
+        // Update Supabase query to select is_24_7 and join operating_hours
+        let query = this.supabase.from('places').select('*, is_24_7, operating_hours(*)');
         
         // Category filtering (Server-side)
         if (options.categories?.length && !options.categories.includes('All')) {
@@ -79,26 +59,26 @@ export class RecommendationEngine {
         
         if (error) console.error("RecommendationEngine Error:", error);
 
-        let venues = (data || []) as Venue[];
+        let places = (data || []) as Place[]; // Changed Venue[] to Place[]
 
         // 1. Strict Client-Side Open Now Filtering (Only if explicitly requested)
         if (options.openNow) {
-            venues = venues.filter(v => isPlaceOpenNow(v));
+            places = places.filter(p => isPlaceOpenNow(p).is_open); // Changed v to p and access is_open property
         }
 
         // 2. Music Vibe Filtering
         if (options.musicVibe) {
-            venues = venues.filter(v => matchMusicVibe(v, options.musicVibe));
+            places = places.filter(p => matchMusicVibe(p, options.musicVibe)); // Changed v to p
         }
 
         // 3. Clamp back to reasonable size after filtering
-        if (venues.length > 50) {
-            venues = venues.slice(0, 50);
+        if (places.length > 50) {
+            places = places.slice(0, 50);
         }
 
         return {
-            venues: venues,
-            scores: venues.map(v => ({ venueId: v.id, score: 0.9 })), // Placeholder scoring
+            venues: places, // Changed venues to places
+            scores: places.map(p => ({ venueId: p.id, score: 0.9 })), // Changed v to p
             isNameSearch: !!options.searchQuery
         };
     }

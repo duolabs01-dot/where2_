@@ -1,5 +1,6 @@
-import { getCATNow, isPlaceOpenNow } from './timeFilter';
+import { getCATNow, isPlaceOpenNow, PlaceOpenNowStatus } from './timeFilter'; // Import PlaceOpenNowStatus
 import type { CrowdFilter, PriceVibeFilter } from './filtersStore';
+import { Place } from '../types'; // Import Place
 
 interface SecondaryFilterState {
   tonightOnly: boolean;
@@ -7,24 +8,11 @@ interface SecondaryFilterState {
   priceVibe: PriceVibeFilter;
 }
 
-interface SecondaryFilterPlace {
-  id?: string;
-  name?: string;
-  opening_time?: string;
-  price_level?: number;
-  [key: string]: any;
+// SecondaryFilterPlace now extends Place
+interface SecondaryFilterPlace extends Place {
+  // We can add any specific properties needed for secondary filters here
+  // For now, it just inherits from Place
 }
-
-const parseMinutes = (timeText?: string | null): number | null => {
-  if (!timeText) return null;
-  const match = String(timeText).trim().match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return null;
-  const hh = Number(match[1]);
-  const mm = Number(match[2]);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
-  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
-  return hh * 60 + mm;
-};
 
 const mapNumericCrowd = (value: number): CrowdFilter => {
   if (value <= 1.5) return 'quiet';
@@ -74,11 +62,17 @@ export const getPriceVibeFromLevel = (priceLevel?: number | null): PriceVibeFilt
   return 'treat';
 };
 
+// Refactor opensLaterToday to use PlaceOpenNowStatus
 export const opensLaterToday = (place: SecondaryFilterPlace, nowMinutes: number): boolean => {
-  if (isPlaceOpenNow(place).is_open) return false;
-  const openingMinutes = parseMinutes(place.opening_time);
-  if (openingMinutes === null) return false;
-  return openingMinutes > nowMinutes;
+  const openStatus: PlaceOpenNowStatus = isPlaceOpenNow(place);
+  if (openStatus.is_open) return false; // Already open
+  if (openStatus.opens_today) {
+    // If it opens later today, then true. opens_at is already formatted HH:mm
+    const [openH, openM] = openStatus.opens_at!.split(':').map(Number);
+    const openingMinutes = openH * 60 + openM;
+    return openingMinutes > nowMinutes;
+  }
+  return false; // Does not open later today
 };
 
 export const applySecondaryFilters = <T extends SecondaryFilterPlace>(

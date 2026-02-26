@@ -4,7 +4,7 @@ import { supabase } from '../supabase';
 import { GlassSheet, CardSkeleton } from './Layouts';
 import { VenueCard } from './VenueCard';
 import { Place } from '../types';
-import { Venue } from '../lib/recommendationEngine';
+import { DiscoveryVenue } from '../src/lib/discoveryEngine'; // Import DiscoveryVenue
 import { enrichPlacesWithImages } from '../utils/imageEnricher';
 import { useTheme } from './ThemeProvider';
 
@@ -15,7 +15,7 @@ interface SavedPlacesSheetProps {
 }
 
 export const SavedPlacesSheet: React.FC<SavedPlacesSheetProps> = ({ isOpen, onClose, onNavigateTo }) => {
-  const [savedVenues, setSavedVenues] = useState<Venue[]>([]);
+  const [savedVenues, setSavedVenues] = useState<DiscoveryVenue[]>([]);
   const [loading, setLoading] = useState(true);
   const { tokens } = useTheme();
 
@@ -35,7 +35,7 @@ export const SavedPlacesSheet: React.FC<SavedPlacesSheetProps> = ({ isOpen, onCl
         .from('saved_places')
         .select(`
           created_at,
-          place:places(*)
+          place:places(*, is_24_7, operating_hours(*))
         `)
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
@@ -44,16 +44,15 @@ export const SavedPlacesSheet: React.FC<SavedPlacesSheetProps> = ({ isOpen, onCl
 
       if (data) {
         const rawPlaces = data.map((item: any) => item.place).filter(Boolean);
-        const enriched = await enrichPlacesWithImages(rawPlaces);
+        const enriched = await enrichPlacesWithImages(rawPlaces as Place[]);
         
-        // Map to Venue type (basic compatibility)
-        const venues: Venue[] = enriched.map(p => ({
+        const discoveryVenues: DiscoveryVenue[] = enriched.map(p => ({
             ...p,
-            isOpen: false, // Not calculating open status for list view to save perf, or handled in card
-            dist_meters: 0
+            distanceNumeric: 0, // Default for saved places, not actively calculated here
+            open_now: false // Default for saved places, open status is checked in VenueCard
         }));
         
-        setSavedVenues(venues);
+        setSavedVenues(discoveryVenues);
       }
     } catch (e) {
       console.error('Error fetching saved places', e);
@@ -105,7 +104,7 @@ export const SavedPlacesSheet: React.FC<SavedPlacesSheetProps> = ({ isOpen, onCl
                         index={index}
                         onClick={() => {}} // Could open detail
                         // Fixed type mismatch: casting Venue to Place for onNavigateTo prop
-                        onNavigate={() => onNavigateTo(venue as any as Place)}
+                        onNavigate={() => onNavigateTo(venue as DiscoveryVenue)}
                     />
                 ))
             )}

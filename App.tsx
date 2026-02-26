@@ -15,9 +15,10 @@ import { showToast } from './utils/toast';
 import { supabase } from './supabase';
 import { FiltersProvider, useFilters } from './lib/filtersStore';
 import { DiscoveryProvider, useDiscoveryContext } from './src/state/DiscoveryContext';
-import { SearchIntent, NavTab } from './types';
+import { SearchIntent, NavTab, Place } from './types';
 import { initTheme } from './utils/theme';
-import { RecommendationEngine, VenueScore, Venue } from './lib/recommendationEngine';
+import { RecommendationEngine, VenueScore } from './lib/recommendationEngine';
+import { DiscoveryVenue } from './src/lib/discoveryEngine';
 
 const AppShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('Discover');
@@ -27,7 +28,7 @@ const AppShell: React.FC = () => {
   const [showWelcome, setShowWelcome] = useState(false);
   const [initialIntent, setInitialIntent] = useState<SearchIntent | null>(null);
   const pendingActionRef = useRef<(() => void) | null>(null);
-  const prefetchedRef = useRef<{ venues: Venue[]; scores: VenueScore[] } | null>(null);
+  const prefetchedRef = useRef<{ venues: DiscoveryVenue[]; scores: VenueScore[] } | null>(null);
 
   const { state: discoveryState } = useDiscoveryContext();
   const { resetFilters } = useFilters();
@@ -103,7 +104,7 @@ const AppShell: React.FC = () => {
         });
 
         prefetchedRef.current = {
-          venues: venues as Venue[],
+          venues: venues as DiscoveryVenue[],
           scores: scores as VenueScore[],
         };
       } catch (_err) {

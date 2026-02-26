@@ -1,14 +1,13 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../supabase';
-import { Place, Review, Plan } from '../types';
+import { Place, Review, Plan, OperatingHour } from '../types'; // Added OperatingHour import
 import { showToast } from '../utils/toast';
 import { useSwipe } from './Layouts';
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion';
 import { prefersReducedMotion, sheetVariants, springs, triggerConfetti, useHaptic } from '../utils/animations';
 import { IOSGlassImage } from './IOSGlassImage';
 import { preferenceEngine } from '../lib/preferenceEngine';
-import { Venue } from '../lib/recommendationEngine';
 import { setIntentNow } from '../lib/intentEngine';
 import { isLocallySaved, toggleLocalSave } from '../lib/savedStore';
 import { GoThereModal } from './GoThereModal';
@@ -141,7 +140,7 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
        triggerSuccess();
        showToast(`Added to ${plan.title}`, 'success');
        setShowPlanSelector(false);
-       preferenceEngine.updateFromBehavior('save', place as Venue);
+       preferenceEngine.updateFromBehavior('save', place as Place); // Changed Venue to Place
     }
   };
 
@@ -186,7 +185,7 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
         if (!currentState) {
             const { error } = await supabase.from('saved_places').insert({ place_id: place.id, user_id: session.user.id });
             if (error && error.code !== '23505') { setIsSaved(currentState); showToast('Failed to save', 'error'); }
-            else { triggerConfetti(); showToast('Saved to your list', 'success'); preferenceEngine.updateFromBehavior('save', place as Venue); }
+            else { triggerConfetti(); showToast('Saved to your list', 'success'); preferenceEngine.updateFromBehavior('save', place as Place); } // Changed Venue to Place
         } else {
             const { error } = await supabase.from('saved_places').delete().match({ place_id: place.id, user_id: session.user.id });
             if (error) { setIsSaved(currentState); showToast('Failed to remove', 'error'); }
@@ -271,20 +270,38 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
     return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(' ', '');
   };
 
+  const getDayName = (dayOfWeek: number) => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    // DB uses 1-7 for Mon-Sun. JS getDay() is 0-6 for Sun-Sat.
+    // Adjust dayOfWeek to be 0-indexed for array access, with Sunday being last.
+    const adjustedDay = dayOfWeek === 7 ? 0 : dayOfWeek;
+    return days[adjustedDay];
+  };
+
   const openStatus = useMemo(() => isPlaceOpenNow(place), [place]);
   const priceStr = place.price_level ? 'R'.repeat(place.price_level) : 'RR';
   const rating = 4.8; 
   const distance = place.distance || 'Nearby';
 
   const timeStatus = (() => {
+    if (place.is_24_7) {
+      return { label: 'Open 24/7', color: 'text-green-400', sub: 'Always open' };
+    }
     if (openStatus.open_hours_unknown) {
       return { label: 'Hours TBC', color: 'text-amber-300', sub: 'Please confirm before visiting' };
     }
     if (openStatus.is_open) {
-      return { label: 'Open Now', color: 'text-green-400', sub: `Until ${formatTimeDisplay(place.closing_time) || 'late'}` };
+      const closingTime = openStatus.current_day_hours?.find(oh => oh.open_time === openStatus.opens_at)?.close_time || '';
+      return { label: 'Open Now', color: 'text-green-400', sub: `Closes at ${formatTimeDisplay(closingTime) || 'late'}` };
     }
     if (openStatus.opens_at) {
-      const opensText = openStatus.opens_today ? `Opens at ${openStatus.opens_at}` : `Opens Tomorrow ${openStatus.opens_at}`;
+        let opensText = `Opens at ${formatTimeDisplay(openStatus.opens_at)}`;
+        if (openStatus.opens_today) {
+            opensText = `Opens today ${formatTimeDisplay(openStatus.opens_at)}`;
+        } else if (openStatus.next_opening_hours) {
+            const nextDayName = getDayName(openStatus.next_opening_hours.day_of_week);
+            opensText = `Opens ${nextDayName} ${formatTimeDisplay(openStatus.next_opening_hours.open_time)}`;
+        }
       return { label: opensText, color: 'text-amber-300', sub: '' };
     }
     return { label: 'Closed', color: 'text-red-400', sub: '' };
@@ -326,6 +343,7 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
                        <span className="material-symbols-outlined text-base">{openStatus.is_open ? 'schedule' : 'av_timer'}</span>
                        <span>{timeStatus.label}</span>
                      </div>
+                     {timeStatus.sub && <p className="text-center text-xs text-gray-400 mt-1">{timeStatus.sub}</p>}
                    </div>
                    <div className={`mt-4 p-3 rounded-2xl border ${tokens.border} ${tokens.surface2}`}>
                       <div className="flex items-center justify-between gap-2 mb-2">

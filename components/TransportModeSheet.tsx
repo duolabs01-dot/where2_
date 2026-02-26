@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import { Place } from '../types';
 import { useHaptic } from '../utils/animations';
 import { preferenceEngine } from '../lib/preferenceEngine';
-import { Venue } from '../lib/recommendationEngine';
 import { showToast } from '../utils/toast';
 import { useTheme } from './ThemeProvider';
 
@@ -21,7 +20,7 @@ export const TransportModeSheet: React.FC<TransportModeSheetProps> = ({ place, o
     const handleDrive = () => {
         trigger();
         onDrive(); // Call internal navigation handler
-        preferenceEngine.updateFromBehavior('navigate', place as Venue);
+        preferenceEngine.updateFromBehavior('navigate', place as Place);
         onClose();
     };
 
@@ -30,7 +29,7 @@ export const TransportModeSheet: React.FC<TransportModeSheetProps> = ({ place, o
         // Uber Universal Link
         const url = `https://m.uber.com/ul/?action=setPickup&client_id=where2&pickup=my_location&dropoff[latitude]=${place.latitude}&dropoff[longitude]=${place.longitude}&dropoff[nickname]=${encodeURIComponent(place.name)}`;
         window.open(url, '_blank');
-        preferenceEngine.updateFromBehavior('navigate', place as Venue);
+        preferenceEngine.updateFromBehavior('navigate', place as Place);
     };
 
     const handleBolt = () => {
@@ -45,7 +44,7 @@ export const TransportModeSheet: React.FC<TransportModeSheetProps> = ({ place, o
              showToast("Opening Bolt app...", "info");
         }, 500);
 
-        preferenceEngine.updateFromBehavior('navigate', place as Venue);
+        preferenceEngine.updateFromBehavior('navigate', place as Place);
     };
     
     const handleMaps = () => {

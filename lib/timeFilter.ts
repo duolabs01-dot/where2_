@@ -1,3 +1,4 @@
+import { Place, OperatingHour } from '../types';
 
 /**
  * Utility to get current time in Central Africa Time (CAT) 
@@ -33,48 +34,164 @@ export const getCATNow = (): Date => {
     );
 };
 
+/**
+ * Formats a time string (HH:mm:ss or HH:mm) into a user-friendly format (e.g., "9:00 AM").
+ * Uses Johannesburg time (CAT).
+ */
+export const formatTimeDisplay = (timeStr?: string) => {
+    if (!timeStr) return '';
+    const [h, m] = timeStr.split(':').map(Number);
+    const date = getCATNow(); // Use current CAT date to preserve day, but set target time
+    date.setHours(h, m, 0, 0); // Set hours, minutes, seconds, milliseconds
+
+    // Use toLocaleTimeString for proper AM/PM and locale formatting
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(' ', '');
+};
+
 export interface PlaceOpenNowStatus {
     is_open: boolean;
     open_hours_unknown: boolean;
-    opens_at?: string;
-    opens_today?: boolean;
+    opens_at?: string; // Next opening time, if known
+    opens_today?: boolean; // If it opens later today
+    current_day_hours?: OperatingHour[]; // All operating hours for today
+    next_opening_hours?: OperatingHour; // Next period it opens, across days
 }
 
-export const isPlaceOpenNow = (place: any): PlaceOpenNowStatus => {
-    if (!place) return { is_open: false, open_hours_unknown: true };
-    if (place.status === 'CLOSED') return { is_open: false, open_hours_unknown: false };
-    if (place.status === 'OPEN') return { is_open: true, open_hours_unknown: false };
-    
-    if (!place.opening_time || !place.closing_time) {
+export const isPlaceOpenNow = (place: Place): PlaceOpenNowStatus => {
+    // 24/7 venues are always open
+    if (place.is_24_7) {
+        return { is_open: true, open_hours_unknown: false };
+    }
+
+    // If no operating hours are provided, we don't know if it's open
+    if (!place.operating_hours || place.operating_hours.length === 0) {
         return { is_open: false, open_hours_unknown: true };
     }
-    
+
     const nowCAT = getCATNow();
-    const currentMins = nowCAT.getHours() * 60 + nowCAT.getMinutes();
-    const [oh, om] = place.opening_time.split(':').map(Number);
-    const [ch, cm] = place.closing_time.split(':').map(Number);
-    const start = oh * 60 + om;
-    const end = ch * 60 + cm;
-    
-    const is_open = end < start 
-        ? (currentMins >= start || currentMins <= end)
-        : (currentMins >= start && currentMins <= end);
-    
-    if (is_open) return { is_open: true, open_hours_unknown: false };
-    
-    const opens_today = currentMins < start;
+    // getDay() returns 0 for Sunday, 1 for Monday, ..., 6 for Saturday.
+    // Our DB uses 1 for Monday, ..., 7 for Sunday. Adjusting.
+    const currentDayOfWeek = nowCAT.getDay() === 0 ? 7 : nowCAT.getDay();
+    const currentMinutes = nowCAT.getHours() * 60 + nowCAT.getMinutes();
+
+    // Find all operating hours for the current day
+    const todayOperatingHours = place.operating_hours.filter(oh => oh.day_of_week === currentDayOfWeek);
+
+    // Also consider hours that started yesterday and end today (multi-day spans)
+    const previousDayOfWeek = currentDayOfWeek === 1 ? 7 : currentDayOfWeek - 1;
+    const yesterdayOperatingHours = place.operating_hours.filter(oh =>
+        oh.day_of_week === previousDayOfWeek &&
+        oh.open_time > oh.close_time // This indicates a multi-day span
+    );
+
+    let currentOpenPeriod: OperatingHour | undefined;
+
+    // Check today's operating hours
+    for (const oh of todayOperatingHours) {
+        const [openHour, openMinute] = oh.open_time.split(':').map(Number);
+        const [closeHour, closeMinute] = oh.close_time.split(':').map(Number);
+
+        const openMinutes = openHour * 60 + openMinute;
+        const closeMinutes = closeHour * 60 + closeMinute;
+
+        // Case 1: Standard hours (open and close on the same day)
+        if (openMinutes <= closeMinutes) {
+            if (currentMinutes >= openMinutes && currentMinutes < closeMinutes) {
+                currentOpenPeriod = oh;
+                break;
+            }
+        } else { // Case 2: Multi-day span (opens today, closes tomorrow)
+            // If currentMinutes is >= openMinutes, it means it opened today and is still open.
+            // If currentMinutes is < closeMinutes, it means it opened today and closes after midnight.
+            if (currentMinutes >= openMinutes || currentMinutes < closeMinutes) {
+                 currentOpenPeriod = oh;
+                 break;
+            }
+        }
+    }
+
+    // If not found in today's hours, check if it opened yesterday and is still open today
+    if (!currentOpenPeriod) {
+        for (const oh of yesterdayOperatingHours) {
+            const [openHour, openMinute] = oh.open_time.split(':').map(Number);
+            const [closeHour, closeMinute] = oh.close_time.split(':').map(Number);
+
+            const openMinutes = openHour * 60 + openMinute;
+            const closeMinutes = closeHour * 60 + closeMinute;
+
+            // Multi-day span (opened yesterday, closes today)
+            // Current time must be before yesterday's closing time (which is today)
+            if (currentMinutes < closeMinutes) {
+                currentOpenPeriod = oh;
+                break;
+            }
+        }
+    }
+
+
+    if (currentOpenPeriod) {
+        return { is_open: true, open_hours_unknown: false, current_day_hours: todayOperatingHours };
+    }
+
+    // If not open now, find the next opening time
+    let nextOpeningTime: { time: string; day: number } | undefined;
+
+    // Check for next opening time today
+    for (const oh of todayOperatingHours) {
+        const [openHour, openMinute] = oh.open_time.split(':').map(Number);
+        const openMinutes = openHour * 60 + openMinute;
+        if (openMinutes > currentMinutes) {
+            if (!nextOpeningTime || openMinutes < (nextOpeningTime.time.split(':').map(Number)[0] * 60 + nextOpeningTime.time.split(':').map(Number)[1])) {
+                nextOpeningTime = { time: oh.open_time.substring(0,5), day: currentDayOfWeek };
+            }
+        }
+    }
+
+    // If no opening time today, look for the next day
+    if (!nextOpeningTime) {
+        // Iterate through days of the week starting from tomorrow
+        for (let i = 1; i <= 7; i++) {
+            const nextDay = (currentDayOfWeek % 7) + i; // Loop through days
+            const nextDayOperatingHours = place.operating_hours.filter(oh => oh.day_of_week === nextDay);
+            if (nextDayOperatingHours.length > 0) {
+                // Find the earliest opening time on this next day
+                const earliestNextDayOpen = nextDayOperatingHours.reduce((minOh, oh) => {
+                    const [minOpenH, minOpenM] = minOh.open_time.split(':').map(Number);
+                    const [ohOpenH, ohOpenM] = oh.open_time.split(':').map(Number);
+                    if ((ohOpenH * 60 + ohOpenM) < (minOpenH * 60 + minOpenM)) {
+                        return oh;
+                    }
+                    return minOh;
+                }, nextDayOperatingHours[0]);
+
+                nextOpeningTime = { time: earliestNextDayOpen.open_time.substring(0,5), day: nextDay };
+                break;
+            }
+        }
+    }
+
     return {
         is_open: false,
         open_hours_unknown: false,
-        opens_at: place.opening_time,
-        opens_today,
+        opens_at: nextOpeningTime?.time,
+        opens_today: nextOpeningTime?.day === currentDayOfWeek,
+        current_day_hours: todayOperatingHours,
+        next_opening_hours: nextOpeningTime ? { // Create a dummy OperatingHour for next_opening_hours
+            id: -1, // Dummy ID
+            created_at: new Date().toISOString(),
+            place_id: place.id,
+            day_of_week: nextOpeningTime.day,
+            open_time: nextOpeningTime.time + ':00',
+            close_time: nextOpeningTime.time + ':00', // Close time not relevant here
+        } : undefined,
     };
 };
 
-export const checkTimeFilter = (place: any, filter: string) => {
+export const checkTimeFilter = (place: Place, filter: string) => {
     if (filter === 'now') return isPlaceOpenNow(place).is_open;
     return true;
 };
+
 
 export const getSmartTimeLabel = () => {
     const nowCAT = getCATNow();

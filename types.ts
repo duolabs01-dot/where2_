@@ -20,6 +20,15 @@ export interface Profile {
   share_activity?: boolean;
 }
 
+export interface OperatingHour {
+  id: number;
+  created_at: string;
+  place_id: string;
+  day_of_week: number; // ISO 8601: 1 = Monday, 7 = Sunday
+  open_time: string; // "HH:mm:ss" format
+  close_time: string; // "HH:mm:ss" format
+}
+
 export interface Place {
   id: string;
   name: string;
@@ -31,8 +40,6 @@ export interface Place {
   longitude?: number;
   city: string;
   address?: string;
-  opening_time?: string;
-  closing_time?: string;
   status?: 'OPEN' | 'CLOSED' | 'UNKNOWN';
   distance?: string;
   price_level?: number;
@@ -42,6 +49,8 @@ export interface Place {
   phone_number?: string;
   popular_items?: { name: string; price: string; }[];
   location?: any;
+  is_24_7?: boolean;
+  operating_hours?: OperatingHour[];
 }
 
 export interface PlaceMedia {
