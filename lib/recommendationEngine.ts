@@ -1,6 +1,6 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { isPlaceOpenNow } from './timeFilter';
+import { isPlaceOpenNow, getTimeOfDayBiasCategories } from './timeFilter';
 import { matchesCategoryFilters, CATEGORY_ALIASES } from './categoryFilter';
 
 export interface Venue {
@@ -144,7 +144,16 @@ export class RecommendationEngine {
                 ).length;
                 const multiCategoryBonus = matchCount > 1 ? (matchCount - 1) * 0.3 : 0;
 
-                const score = base + openBonus + vibeScore + distanceScore + multiCategoryBonus;
+                // Time-of-day bias — only applied when user has no category filter active
+                let timeBonus = 0;
+                if (!categories || categories.length === 0 || categories.includes('All')) {
+                    const biasCategories = getTimeOfDayBiasCategories();
+                    const venueText = [v.category, ...(Array.isArray(v.vibe_tags) ? v.vibe_tags : [])].join(' ').toLowerCase();
+                    const biasMatch = biasCategories.some((kw) => venueText.includes(kw));
+                    if (biasMatch) timeBonus = 0.6;
+                }
+
+                const score = base + openBonus + vibeScore + distanceScore + multiCategoryBonus + timeBonus;
 
                 const distanceLabel =
                     distanceNumeric > 0

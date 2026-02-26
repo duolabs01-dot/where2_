@@ -115,3 +115,26 @@ export const getSearchPlaceholder = () => {
 };
 
 export const getJoburgHour = () => getCATNow().getHours();
+
+export type TimeOfDay = 'late_night' | 'morning' | 'daytime' | 'evening' | 'night';
+
+export const getTimeOfDay = (): TimeOfDay => {
+    const hour = getJoburgHour();
+    if (hour >= 0 && hour < 5) return 'late_night';
+    if (hour >= 5 && hour < 11) return 'morning';
+    if (hour >= 11 && hour < 17) return 'daytime';
+    if (hour >= 17 && hour < 21) return 'evening';
+    return 'night';
+};
+
+// Returns category keywords that should rank higher at this time of day
+export const getTimeOfDayBiasCategories = (): string[] => {
+    const tod = getTimeOfDay();
+    switch (tod) {
+        case 'late_night': return ['bar', 'nightlife', 'club', 'lounge', 'after-hours', 'amapiano'];
+        case 'morning':    return ['cafe', 'coffee', 'breakfast', 'brunch', 'bakery'];
+        case 'daytime':    return ['restaurant', 'dining', 'lunch', 'cafe', 'food'];
+        case 'evening':    return ['restaurant', 'dining', 'dinner', 'bar', 'sundowner'];
+        case 'night':      return ['nightlife', 'bar', 'club', 'lounge', 'music', 'amapiano'];
+    }
+};
