@@ -55,6 +55,7 @@ export interface PlaceOpenNowStatus {
     opens_today?: boolean; // If it opens later today
     current_day_hours?: OperatingHour[]; // All operating hours for today
     next_opening_hours?: OperatingHour; // Next period it opens, across days
+    active_period?: OperatingHour; // The currently active operating hour
 }
 
 export const isPlaceOpenNow = (place: Place): PlaceOpenNowStatus => {
@@ -94,19 +95,30 @@ export const isPlaceOpenNow = (place: Place): PlaceOpenNowStatus => {
         const openMinutes = openHour * 60 + openMinute;
         const closeMinutes = closeHour * 60 + closeMinute;
 
+        // Case 0: 24/7 expressed as 00:00 to 00:00
+        if (oh.open_time === '00:00:00' && oh.close_time === '00:00:00') {
+            currentOpenPeriod = oh;
+            break;
+        }
+
         // Case 1: Standard hours (open and close on the same day)
-        if (openMinutes <= closeMinutes) {
+        if (openMinutes < closeMinutes) {
             if (currentMinutes >= openMinutes && currentMinutes < closeMinutes) {
                 currentOpenPeriod = oh;
                 break;
             }
-        } else { // Case 2: Multi-day span (opens today, closes tomorrow)
+        } else if (openMinutes > closeMinutes) { // Case 2: Multi-day span (opens today, closes tomorrow)
             // If currentMinutes is >= openMinutes, it means it opened today and is still open.
             // If currentMinutes is < closeMinutes, it means it opened today and closes after midnight.
             if (currentMinutes >= openMinutes || currentMinutes < closeMinutes) {
                  currentOpenPeriod = oh;
                  break;
             }
+        } else {
+            // openMinutes === closeMinutes and not 00:00:00
+            // This could be a 24h period or a mistake. Assuming 24h if they match but are not 00:00.
+            currentOpenPeriod = oh;
+            break;
         }
     }
 
@@ -130,7 +142,7 @@ export const isPlaceOpenNow = (place: Place): PlaceOpenNowStatus => {
 
 
     if (currentOpenPeriod) {
-        return { is_open: true, open_hours_unknown: false, current_day_hours: todayOperatingHours };
+        return { is_open: true, open_hours_unknown: false, current_day_hours: todayOperatingHours, active_period: currentOpenPeriod };
     }
 
     // If not open now, find the next opening time

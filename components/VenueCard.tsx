@@ -164,23 +164,7 @@ export const VenueCard: React.FC<VenueCardProps> = ({
         return { label: 'Hours TBC', classes: 'bg-gray-500/20 text-gray-200 border-gray-500/30' };
     }
     if (openStatus.is_open) {
-        // Find the current operating hour for the current open period
-        const currentOpenPeriod = openStatus.current_day_hours?.find(oh => {
-            const now = getCATNow();
-            const currentMinutes = now.getHours() * 60 + now.getMinutes();
-            const [openH, openM] = oh.open_time.split(':').map(Number);
-            const [closeH, closeM] = oh.close_time.split(':').map(Number);
-            const openMinutes = openH * 60 + openM;
-            const closeMinutes = closeH * 60 + closeM;
-
-            if (openMinutes <= closeMinutes) {
-                return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
-            } else {
-                return currentMinutes >= openMinutes || currentMinutes < closeMinutes;
-            }
-        });
-
-        const closingTime = currentOpenPeriod?.close_time;
+        const closingTime = openStatus.active_period?.close_time;
         return { label: 'Open Now', classes: 'bg-green-500/15 text-green-200 border-green-500/30', sub: `Until ${formatTimeDisplay(closingTime) || 'late'}` };
     }
     if (openStatus.opens_at) {

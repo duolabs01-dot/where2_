@@ -291,7 +291,7 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
       return { label: 'Hours TBC', color: 'text-amber-300', sub: 'Please confirm before visiting' };
     }
     if (openStatus.is_open) {
-      const closingTime = openStatus.current_day_hours?.find(oh => oh.open_time === openStatus.opens_at)?.close_time || '';
+      const closingTime = openStatus.active_period?.close_time || '';
       return { label: 'Open Now', color: 'text-green-400', sub: `Closes at ${formatTimeDisplay(closingTime) || 'late'}` };
     }
     if (openStatus.opens_at) {
