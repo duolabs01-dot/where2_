@@ -35,6 +35,29 @@ const EXPLICIT_HOURS_BY_NAME = new Map([
   ['boulders beach', { is_24_7: true }],
   ['cape of good hope', { is_24_7: true }],
   ['austin roberts bird sanctuary', { is_24_7: true }],
+  ['gallery art bar', [
+    { day_of_week: 4, open_time: '17:00:00', close_time: '00:00:00' },
+    { day_of_week: 5, open_time: '17:00:00', close_time: '02:00:00' },
+    { day_of_week: 6, open_time: '17:00:00', close_time: '02:00:00' },
+  ]],
+  ['gin bar', [
+    { day_of_week: 1, open_time: '17:00:00', close_time: '01:00:00' },
+    { day_of_week: 2, open_time: '17:00:00', close_time: '01:00:00' },
+    { day_of_week: 3, open_time: '17:00:00', close_time: '01:00:00' },
+    { day_of_week: 4, open_time: '15:00:00', close_time: '01:00:00' },
+    { day_of_week: 5, open_time: '15:00:00', close_time: '01:00:00' },
+    { day_of_week: 6, open_time: '15:00:00', close_time: '01:00:00' },
+    { day_of_week: 7, open_time: '12:00:00', close_time: '18:00:00' },
+  ]],
+  ['glenwood bakery', [
+    { day_of_week: 1, open_time: '06:00:00', close_time: '15:00:00' },
+    { day_of_week: 2, open_time: '06:00:00', close_time: '15:00:00' },
+    { day_of_week: 3, open_time: '06:00:00', close_time: '15:00:00' },
+    { day_of_week: 4, open_time: '06:00:00', close_time: '15:00:00' },
+    { day_of_week: 5, open_time: '06:00:00', close_time: '15:00:00' },
+    { day_of_week: 6, open_time: '06:00:00', close_time: '14:00:00' },
+    { day_of_week: 7, open_time: '06:00:00', close_time: '14:00:00' },
+  ]],
 ]);
 
 const run = async () => {
