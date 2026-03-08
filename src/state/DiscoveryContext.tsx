@@ -200,9 +200,8 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           openNowOnly: state.mode === 'RIGHT_NOW',
           categories: state.categories,
           searchQuery: state.searchQuery,
-          fallbackRadius: state.mode === 'RIGHT_NOW' ? PRIMARY_WALK_RADIUS_M : state.radiusMeters,
-          maxRadiusMeters:
-            state.radiusMeters > MAX_EXPLORE_RADIUS_M ? state.radiusMeters : MAX_EXPLORE_RADIUS_M,
+          fallbackRadius: PRIMARY_WALK_RADIUS_M,
+          maxRadiusMeters: Math.max(state.radiusMeters, MAX_EXPLORE_RADIUS_M),
         });
 
         const enriched = await enrichPlacesWithImages(discovery.venues as Place[]);

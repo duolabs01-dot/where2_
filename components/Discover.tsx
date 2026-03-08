@@ -805,25 +805,30 @@ export const Discover: React.FC<DiscoverProps> = ({
                                         {/* Simplified Slider for Settings */}
                                         <input 
                                             type="range" 
-                                            min="2000" 
+                                            min="600" 
                                             max="30000" 
-                                            step="1000"
+                                            step="100"
                                             value={localRadius}
                                             onChange={(e) => {
-                                                const val = parseInt(e.target.value);
-                                                setLocalRadius(val);
+                                                const raw = parseInt(e.target.value);
+                                                setLocalRadius(raw);
+                                                
                                                 if (debounceTimerRef.current) {
                                                   clearTimeout(debounceTimerRef.current);
                                                 }
                                                 debounceTimerRef.current = setTimeout(() => {
-                                                  setRadiusMeters(val);
+                                                  const steps = [600, 1500, 3000, 6000, 12000, 20000, 30000];
+                                                  const nearest = steps.reduce((prev, curr) =>
+                                                    Math.abs(curr - raw) < Math.abs(prev - raw) ? curr : prev
+                                                  );
+                                                  setRadiusMeters(nearest);
                                                 }, 300);
                                             }}
                                             className="w-full h-2 bg-transparent appearance-none cursor-pointer accent-primary"
                                         />
                                     </div>
                                     <div className="flex justify-between text-[10px] text-gray-500 font-mono mt-2">
-                                        <span>2km</span>
+                                        <span>600m</span>
                                         <span>30km</span>
                                     </div>
                                 </div>
