@@ -170,7 +170,7 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
     }
     setShowMapSheet(true);
   };
-  const handleDriveInternal = () => { setShowGoThere(false); if (onShowMap) onShowMap(); else onClose(); showToast('Navigation started', 'success'); };
+  const handleDriveInternal = () => setShowGoThere(false);
 
   const handleSave = async () => {
     const { data: { session } } = await supabase.auth.getSession();

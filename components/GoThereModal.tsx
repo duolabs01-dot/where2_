@@ -72,20 +72,28 @@ export const GoThereModal: React.FC<GoThereModalProps> = ({ place, onClose, onDr
     if (!requireCoords()) return;
     setLaunchingMode('drive');
     await logGoThereEvent('drive');
+    await maybeCreateCheckIn();
 
-    const appleMapsUrl = `maps://?daddr=${venue.latitude},${venue.longitude}&dirflg=d`;
-    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${venue.latitude},${venue.longitude}&travelmode=driving`;
+    const lat = venue.latitude!;
+    const lng = venue.longitude!;
+
+    // iOS PWA: Apple Maps with driving directions (opens native turn-by-turn)
+    const appleMapsUrl = `maps://?daddr=${lat},${lng}&dirflg=d`;
+    // Fallback for Android / desktop
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
 
     window.location.href = appleMapsUrl;
-    setTimeout(() => {
-      if (document.visibilityState === 'visible') {
-        window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
-      }
-    }, 1500);
+    // If Apple Maps didn't intercept within 1.8s, open Google Maps
+    const fallbackTimer = setTimeout(() => {
+      if (!document.hidden) window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
+    }, 1800);
 
-    await maybeCreateCheckIn();
-    onClose();
+    // Clean up timer if user returns
+    const cleanup = () => clearTimeout(fallbackTimer);
+    window.addEventListener('visibilitychange', cleanup, { once: true });
+
     setLaunchingMode(null);
+    onClose();
   };
 
   const handleWalk = async () => {
