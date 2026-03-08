@@ -7,8 +7,6 @@ import { isPlaceOpenNow, formatTimeDisplay, getCATNow } from '../lib/timeFilter'
 import { getPlaceImageUrl } from '../utils/placeholders';
 import { cardVariants, prefersReducedMotion, springs } from '../utils/animations';
 
-type CrowdSignal = 'quiet' | 'vibes' | 'packed';
-
 interface VenueCardProps {
   venue: DiscoveryVenue; // Change Place to DiscoveryVenue
   recommendationScore?: { venueId: string; score: number; }; // Use direct type for VenueScore
@@ -18,18 +16,6 @@ interface VenueCardProps {
   heightClass?: string;
   badge?: string;
 }
-
-const crowdLabelMap: Record<CrowdSignal, string> = {
-  quiet: 'Quiet',
-  vibes: 'Buzzing',
-  packed: 'Packed',
-};
-
-const crowdStyleMap: Record<CrowdSignal, string> = {
-  quiet: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
-  vibes: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
-  packed: 'bg-red-500/10 text-red-300 border-red-500/20',
-};
 
 // Helper function to get day name from day of week (1=Mon, 7=Sun)
 const getDayName = (dayOfWeek: number) => {
@@ -47,59 +33,10 @@ export const VenueCard: React.FC<VenueCardProps> = ({
   heightClass = 'h-[220px]',
   badge,
 }) => {
-  const [crowdConsensus, setCrowdConsensus] = useState<CrowdSignal | null>(null);
   const [currentImage, setCurrentImage] = useState(0);
   const observerRef = useRef<HTMLDivElement | null>(null);
   const visibleRef = useRef(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchCrowdConsensus = async () => {
-      setCrowdConsensus(null);
-      try {
-        const since = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
-        const { data, error } = await supabase
-          .from('crowd_reports')
-          .select('signal, created_at')
-          .eq('place_id', venue.id)
-          .gt('created_at', since)
-          .limit(500);
-
-        if (cancelled) return;
-
-        if (error || !data || data.length === 0) {
-          setCrowdConsensus(null);
-          return;
-        }
-
-        const counts: Record<CrowdSignal, number> = { quiet: 0, vibes: 0, packed: 0 };
-        for (const row of data) {
-          const signal = row.signal as CrowdSignal;
-          if (signal in counts) counts[signal] += 1;
-        }
-
-        const totalReports = counts.quiet + counts.vibes + counts.packed;
-        if (totalReports < 2) {
-          setCrowdConsensus(null);
-          return;
-        }
-
-        const sorted = (Object.keys(counts) as CrowdSignal[]).sort((a, b) => counts[b] - counts[a]);
-        const winner = sorted[0];
-        setCrowdConsensus(counts[winner] > 0 ? winner : null);
-      } catch (_err) {
-        if (cancelled) return;
-        setCrowdConsensus(null);
-      }
-    };
-
-    fetchCrowdConsensus();
-    return () => {
-      cancelled = true;
-    };
-  }, [venue.id]);
 
   const images = useMemo(() => {
     const media = (venue as any).media as { url?: string }[] | undefined;
@@ -273,12 +210,6 @@ export const VenueCard: React.FC<VenueCardProps> = ({
           <span className="text-[10px] font-bold px-2.5 py-1 rounded-md border border-white/15 text-gray-200 bg-black/40">
             {price}
           </span>
-
-          {crowdConsensus && (
-            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border ${crowdStyleMap[crowdConsensus]}`}>
-              {crowdLabelMap[crowdConsensus]}
-            </span>
-          )}
         </div>
 
         <motion.button

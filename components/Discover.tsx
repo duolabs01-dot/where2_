@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../supabase';
 import { Place } from '../types';
 import { DiscoveryVenue } from '../src/lib/discoveryEngine';
-import { RecommendationEngine, VenueScore } from '../lib/recommendationEngine'; // Import DiscoveryVenue
+import { VenueScore } from '../lib/recommendationEngine'; // Import DiscoveryVenue
 import { PageWrapper, PullToRefresh, GlassSheet, CardSkeleton } from './Layouts';
 import { PlaceDetailSheet } from './PlaceDetailSheet';
 import { usePreciseLocation, calculateDistance } from '../lib/location';
@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { enrichPlacesWithImages } from '../utils/imageEnricher';
 import { useExploreState } from '../lib/exploreState';
 import { useFilters } from '../lib/filtersStore'; 
+import { useDiscoveryContext } from '../src/state/DiscoveryContext';
 import { RadiusExpansionBanner } from './RadiusExpansionBanner';
 import { showToast } from '../utils/toast';
 import { getUserPrefs } from '../lib/preferenceEngine';
@@ -117,26 +118,28 @@ export const Discover: React.FC<DiscoverProps> = ({
 }) => {
   const { state: exploreState, setOrigin, setFocusedPlace } = useExploreState();
   const { state: filterState, setRadiusMeters, setOpenNowOnly, toggleCategory, setCategories, setMode, resetFilters, setMusicVibe } = useFilters();
+  const { state: discoveryState, filteredVenues, filteredScores, refresh, setSearchQuery } = useDiscoveryContext();
 
-  const [venues, setVenues] = useState<DiscoveryVenue[]>([]);
-  const [scores, setScores] = useState<VenueScore[]>([]);
-  const [loading, setLoading] = useState(true);
+  const venues = filteredVenues as DiscoveryVenue[];
+  const scores = filteredScores;
+  const loading = discoveryState.loading;
+  const isLaterMode = discoveryState.autoSwitchedToLater;
+  const expansionLabel = discoveryState.bannerMessage || null;
+
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [activeStories, setActiveStories] = useState<StoryRingItem[]>([]);
+  const [localRadius, setLocalRadius] = useState(filterState.radiusMeters);
   const [friendActivity, setFriendActivity] = useState<FriendActivityItem[]>([]);
   const [storyPlaceholderOnly, setStoryPlaceholderOnly] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQueryLocal] = useState('');
   
-  // Adaptive State
-  const [expansionLabel, setExpansionLabel] = useState<string | null>(null);
-  const [isLaterMode, setIsLaterMode] = useState(false);
-
   const [refreshTick, setRefreshTick] = useState(0); 
   const [lastUpdated, setLastUpdated] = useState<Date>(getCATNow());
   const [currentTime, setCurrentTime] = useState<Date>(getCATNow());
   const [isCollapsed, setIsCollapsed] = useState(false);
   const scrollTopRef = useRef(0); 
   const [showSettingsSheet, setShowSettingsSheet] = useState(false);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const prefetchedAppliedRef = useRef(false);
 
   // Guards
@@ -163,14 +166,12 @@ export const Discover: React.FC<DiscoverProps> = ({
   
   const timeLabel = getSmartTimeLabel();
   const vibeSentence = getVibeSentence(); 
-  const engine = useMemo(() => new RecommendationEngine(supabase), []);
 
   useEffect(() => {
     if (prefetchedAppliedRef.current) return;
     if (prefetchedVenues && prefetchedVenues.length) {
-      setVenues(prefetchedVenues);
-      setScores(prefetchedScores || []);
-      setLoading(false);
+      // prefetched data normally feeds into context or initial state
+      // but the user wants DiscoveryContext as the exclusive source
       prefetchedAppliedRef.current = true;
     }
   }, [prefetchedVenues, prefetchedScores]);
@@ -301,6 +302,10 @@ export const Discover: React.FC<DiscoverProps> = ({
     }
   }, [location, locationLoading]);
 
+  useEffect(() => {
+    setLocalRadius(filterState.radiusMeters);
+  }, [filterState.radiusMeters]);
+
   // Initial Intent Handling
   useEffect(() => {
     if (initialIntent) {
@@ -308,169 +313,12 @@ export const Discover: React.FC<DiscoverProps> = ({
         setOpenNowOnly(initialIntent.timeMode === 'open_now');
         if (initialIntent.categories) setCategories(initialIntent.categories);
         if (initialIntent.initialRadius) setRadiusMeters(initialIntent.initialRadius);
-        // Force refresh on intent arrival
-        setTimeout(() => fetchRecommendations(undefined, true), 100);
     }
   }, [initialIntent]);
 
-  const fetchRecommendations = useCallback(async (overrideQuery?: string, forceRefresh: boolean = false) => {
-    if (isFetchingRef.current && !forceRefresh) return;
-
-    const currentQuery = overrideQuery !== undefined ? overrideQuery : searchQuery;
-    const { lat, lng } = exploreState.origin;
-    
-    if (lat === 0 && lng === 0) return;
-
-    // Check key to avoid duplicate fetch (except forceRefresh)
-    const requestKey = JSON.stringify({
-        lat: lat.toFixed(4), lng: lng.toFixed(4),
-        radius: filterState.radiusMeters,
-        openNow: filterState.openNowOnly,
-        categories: categoriesKey,
-        mode: filterState.mode,
-        musicVibe: filterState.musicVibe,
-        query: currentQuery.trim().toLowerCase(),
-        prefs: stablePrefsKey 
-    });
-
-    if (!forceRefresh && requestKey === lastRequestKeyRef.current) return;
-
-    setLoading(true);
-    isFetchingRef.current = true;
-    lastRequestKeyRef.current = requestKey;
-    
-    // Reset Expansion State
-    setExpansionLabel(null);
-    setIsLaterMode(false);
-
-    const { categories: savedCats, vibes: learnedVibes } = getUserPrefs();
-    const relevantPrefs = [...new Set([...savedCats, ...learnedVibes])];
-
-    try {
-        console.warn('[PERF] recommendations fetch triggered');
-        // 1. Fetch Candidates (Fetch Wide Pool if OpenNow is on, to allow adaptive shrink/expand)
-        // If OpenNow is true, we ignore the manual radius filter during fetch to get enough candidates for adaptive logic.
-        // Otherwise use the manual filter.
-        const effectiveRadius = filterState.openNowOnly ? 30000 : filterState.radiusMeters;
-        
-        // Pass OpenNow=false to engine to get raw candidates, we will filter strictly client-side
-        const rawResult = await engine.getTopPicks({
-            location: { lat, lng },
-            radius: effectiveRadius, 
-            openNow: false, // We handle strict filtering here for adaptive logic
-            categories: filterState.categories, 
-            mode: filterState.mode, 
-            musicVibe: filterState.musicVibe, 
-            showAllVenues: false, 
-            userPreferences: relevantPrefs,
-            searchQuery: currentQuery
-        });
-
-        let finalVenues: DiscoveryVenue[] = rawResult.venues;
-        let finalScores = rawResult.scores;
-
-        // 2. Client-Side Processing & Adaptive Logic
-        // Calculate Distance
-        finalVenues = finalVenues.map((v: Place) => {
-            let dist = 0;
-            if (exploreState.origin.mode === 'gps' && v.latitude && v.longitude) {
-                dist = calculateDistance(exploreState.origin.lat, exploreState.origin.lng, v.latitude, v.longitude) * 1000;
-            }
-            return { ...v, distanceNumeric: dist } as DiscoveryVenue;
-        });
-
-        // 3. Apply Filtering Logic
-        if (filterState.openNowOnly && !rawResult.isNameSearch) {
-            // A. Strict Open Filter
-            const openVenues = finalVenues.filter(v => isPlaceOpenNow(v).is_open);
-            
-            // B. Adaptive Radius Expansion
-            let sufficientFound = false;
-            let chosenStep = ADAPTIVE_STEPS[0];
-
-            for (const step of ADAPTIVE_STEPS) {
-                const countInRadius = openVenues.filter(v => (v.distanceNumeric || 0) <= step.radius).length;
-                if (countInRadius >= 3) {
-                    sufficientFound = true;
-                    chosenStep = step;
-                    break;
-                }
-                chosenStep = step; // Keep expanding
-            }
-
-            if (sufficientFound) {
-                // Found enough open venues within a certain step
-                finalVenues = openVenues.filter(v => (v.distanceNumeric || 0) <= chosenStep.radius);
-                
-                // Show banner if we expanded beyond the smallest step
-                if (chosenStep.radius > ADAPTIVE_STEPS[0].radius) {
-                    setExpansionLabel(chosenStep.label);
-                    // Silently update filter state to match reality without triggering refetch loop (ref check guards it)
-                    if (filterState.radiusMeters !== chosenStep.radius) {
-                        setRadiusMeters(chosenStep.radius);
-                    }
-                }
-            } else {
-                // C. Fallback to "Later" Mode (0 results even at max radius)
-                setIsLaterMode(true);
-                setExpansionLabel('Nothing open nearby');
-                // Show closed venues, but sorted by distance, limited to max radius
-                finalVenues = finalVenues.filter(v => (v.distanceNumeric || 0) <= 30000);
-            }
-        } else {
-            // Standard Radius Filter (No adaptive logic if OpenNow is off or searching by name)
-            finalVenues = finalVenues.filter(v => (v.distanceNumeric || 0) <= filterState.radiusMeters);
-        }
-
-        // 4. Sort & Limit
-        finalVenues.sort((a, b) => (a.distanceNumeric || 0) - (b.distanceNumeric || 0));
-        
-        // Enrich images
-        const enriched = await enrichPlacesWithImages(finalVenues as Place[]);
-        const merged = enriched.map(e => {
-            const original = finalVenues.find(v => v.id === e.id);
-            return { ...original, ...e } as DiscoveryVenue;
-        });
-
-        setVenues(merged);
-        setScores(finalScores);
-        setLastUpdated(getCATNow());
-
-    } catch (e: any) {
-        showToast(e.message || "Failed to load venues", 'error');
-    } finally {
-        setLoading(false);
-        setRefreshTick(prev => prev + 1);
-        if (scrollTopRef.current < 20) setIsCollapsed(false);
-        isFetchingRef.current = false;
-    }
-  }, [
-    categoriesKey,
-    engine,
-    exploreState.origin.lat,
-    exploreState.origin.lng,
-    exploreState.origin.mode,
-    filterState.mode,
-    filterState.openNowOnly,
-    filterState.radiusMeters,
-    filterState.musicVibe,
-    stablePrefsKey,
-    searchQuery,
-  ]); 
-
-  // Debounced auto-fetch on filter change
-  useEffect(() => {
-     if (exploreState.origin.lat === 0) return;
-     const timeoutId = setTimeout(() => {
-        fetchRecommendations();
-     }, 400);
-     return () => clearTimeout(timeoutId);
-  }, [fetchRecommendations]); 
-
   const handleSearch = (query: string) => {
+      setSearchQueryLocal(query);
       setSearchQuery(query);
-      // Immediate fetch for search
-      setTimeout(() => fetchRecommendations(query, true), 0);
   };
 
   const handleScroll = (scrollTop: number) => {
@@ -481,10 +329,8 @@ export const Discover: React.FC<DiscoverProps> = ({
 
   const handleRefresh = async () => {
       setIsCollapsed(false); 
-      await Promise.all([
-        fetchRecommendations(undefined, true),
-        fetchStoriesAndFriends(),
-      ]);
+      refresh();
+      await fetchStoriesAndFriends();
   };
 
   const handleMapAction = () => {
@@ -905,12 +751,11 @@ export const Discover: React.FC<DiscoverProps> = ({
                         </button>
                         <button 
                             onClick={() => {
+                                trigger();
                                 setOpenNowOnly(false); 
-                                setIsLaterMode(true);
                                 // Force re-fetch logic without strict filter by triggering state change if needed, 
                                 // but setting isLaterMode usually handles the UI. 
                                 // Here we toggle the filter to actually fetch closed places.
-                                setOpenNowOnly(false);
                             }}
                             className="w-full py-4 bg-white/10 text-white font-bold rounded-2xl border border-white/5 hover:bg-white/20 transition-all flex items-center justify-center gap-2 active:scale-98"
                         >
@@ -954,7 +799,7 @@ export const Discover: React.FC<DiscoverProps> = ({
                                 <div>
                                     <div className="flex justify-between mb-4">
                                         <label className="text-xs font-bold text-gray-400 uppercase">Search Radius</label>
-                                        <span className="text-primary font-bold text-sm">{filterState.radiusMeters >= 1000 ? `${filterState.radiusMeters/1000}km` : `${filterState.radiusMeters}m`}</span>
+                                        <span className="text-primary font-bold text-sm">{localRadius >= 1000 ? `${localRadius/1000}km` : `${localRadius}m`}</span>
                                     </div>
                                     <div className="relative h-2 bg-white/10 rounded-full mb-6 mx-2">
                                         {/* Simplified Slider for Settings */}
@@ -963,8 +808,17 @@ export const Discover: React.FC<DiscoverProps> = ({
                                             min="2000" 
                                             max="30000" 
                                             step="1000"
-                                            value={filterState.radiusMeters}
-                                            onChange={(e) => setRadiusMeters(parseInt(e.target.value))}
+                                            value={localRadius}
+                                            onChange={(e) => {
+                                                const val = parseInt(e.target.value);
+                                                setLocalRadius(val);
+                                                if (debounceTimerRef.current) {
+                                                  clearTimeout(debounceTimerRef.current);
+                                                }
+                                                debounceTimerRef.current = setTimeout(() => {
+                                                  setRadiusMeters(val);
+                                                }, 300);
+                                            }}
                                             className="w-full h-2 bg-transparent appearance-none cursor-pointer accent-primary"
                                         />
                                     </div>

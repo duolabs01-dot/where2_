@@ -212,11 +212,12 @@ html.theme-neo .liquid-glass {
   transform-origin: bottom center;
 }
 
-* {
-  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+* { box-sizing: border-box; }
+
+.theme-transition {
+  transition-property: background-color, border-color, color;
   transition-duration: 300ms;
-  box-sizing: border-box;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes shimmer {
