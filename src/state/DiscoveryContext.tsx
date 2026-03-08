@@ -8,7 +8,7 @@ import { applySecondaryFilters } from '../../lib/secondaryFilters';
 import { matchesMusicFilter } from '../../lib/mockSignals';
 import type { MusicFilter } from '../../lib/mockSignals';
 import { enrichPlacesWithImages } from '../../utils/imageEnricher';
-import { getCATNow } from '../../lib/timeFilter';
+import { getCATNow, getTimeOfDayBiasCategories } from '../../lib/timeFilter';
 import {
   MAX_EXPLORE_RADIUS_M,
   MAX_MAP_RADIUS_M,
@@ -210,10 +210,24 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return { ...original, ...venue } as Place & { distanceNumeric?: number };
         });
 
+        const biasCategories = getTimeOfDayBiasCategories();
         const scores = merged.map((venue) => {
           const distance = venue.distanceNumeric || MAX_EXPLORE_RADIUS_M;
           const normalized = 1 - Math.min(distance / MAX_EXPLORE_RADIUS_M, 1);
-          return { venueId: venue.id, score: Math.max(0.1, normalized) };
+          // Time-of-day bonus (only when no category filter active)
+          let timeBonus = 0;
+          if (!state.categories.length || state.categories.includes('All')) {
+            const venueText = [venue.category, ...(Array.isArray(venue.vibe_tags) ? venue.vibe_tags : [])].join(' ').toLowerCase();
+            if (biasCategories.some(kw => venueText.includes(kw))) timeBonus = 0.3;
+          }
+          return { venueId: venue.id, score: Math.max(0.1, normalized + timeBonus) };
+        });
+
+        // Re-sort merged by score descending
+        merged.sort((a, b) => {
+          const scoreA = scores.find((s) => s.venueId === a.id)?.score || 0;
+          const scoreB = scores.find((s) => s.venueId === b.id)?.score || 0;
+          return scoreB - scoreA;
         });
 
         let reason: string | undefined;

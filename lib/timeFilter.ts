@@ -258,12 +258,10 @@ export const getTimeOfDay = (): TimeOfDay => {
 
 // Returns category keywords that should rank higher at this time of day
 export const getTimeOfDayBiasCategories = (): string[] => {
-    const tod = getTimeOfDay();
-    switch (tod) {
-        case 'late_night': return ['bar', 'nightlife', 'club', 'lounge', 'after-hours', 'amapiano'];
-        case 'morning':    return ['cafe', 'coffee', 'breakfast', 'brunch', 'bakery'];
-        case 'daytime':    return ['restaurant', 'dining', 'lunch', 'cafe', 'food'];
-        case 'evening':    return ['restaurant', 'dining', 'dinner', 'bar', 'sundowner'];
-        case 'night':      return ['nightlife', 'bar', 'club', 'lounge', 'music', 'amapiano'];
-    }
+    const hour = getJoburgHour();
+    if (hour >= 0 && hour < 5)  return ['bar','nightlife','club','lounge','amapiano','after-hours'];
+    if (hour >= 5 && hour < 11) return ['cafe','coffee','breakfast','brunch','bakery'];
+    if (hour >= 11 && hour < 17) return ['restaurant','dining','lunch','cafe','food'];
+    if (hour >= 17 && hour < 21) return ['restaurant','dining','dinner','bar','sundowner'];
+    return ['nightlife','bar','club','lounge','music','amapiano'];
 };

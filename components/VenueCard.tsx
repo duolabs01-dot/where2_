@@ -94,27 +94,21 @@ export const VenueCard: React.FC<VenueCardProps> = ({
     : null;
 
   const statusBadge = (() => {
-    if (venue.is_24_7) {
-        return { label: 'Open 24/7', classes: 'bg-green-500/15 text-green-200 border-green-500/30' };
-    }
-    if (openStatus.open_hours_unknown) {
-        return { label: 'Hours TBC', classes: 'bg-gray-500/20 text-gray-200 border-gray-500/30' };
-    }
-    if (openStatus.is_open) {
-        const closingTime = openStatus.active_period?.close_time;
-        return { label: 'Open Now', classes: 'bg-green-500/15 text-green-200 border-green-500/30', sub: `Until ${formatTimeDisplay(closingTime) || 'late'}` };
-    }
-    if (openStatus.opens_at) {
-        let opensText = `Opens ${formatTimeDisplay(openStatus.opens_at)}`;
-        if (openStatus.opens_today) {
-            opensText = `Opens today ${formatTimeDisplay(openStatus.opens_at)}`;
-        } else if (openStatus.next_opening_hours) {
-            const nextDayName = getDayName(openStatus.next_opening_hours.day_of_week);
-            opensText = `Opens ${nextDayName} ${formatTimeDisplay(openStatus.next_opening_hours.open_time)}`;
-        }
-        return { label: opensText, classes: 'bg-amber-500/15 text-amber-200 border-amber-500/30' };
-    }
-    return { label: 'Closed', classes: 'bg-red-500/15 text-red-200 border-red-500/30' };
+    const label = openStatus.open_hours_unknown
+      ? 'Hours TBC'
+      : openStatus.is_open
+        ? 'Open Now'
+        : openStatus.opens_at
+          ? (openStatus.opens_today ? `Opens ${openStatus.opens_at}` : `Tomorrow ${openStatus.opens_at}`)
+          : 'Closed';
+
+    const classes = openStatus.open_hours_unknown || (!openStatus.is_open && openStatus.opens_at)
+      ? 'bg-amber-500/10 text-amber-300 border-amber-500/20'
+      : openStatus.is_open
+        ? 'bg-green-500/10 text-green-300 border-green-500/20'
+        : 'bg-red-500/10 text-red-300 border-red-500/20';
+
+    return { label, classes };
   })();
 
   return (
