@@ -9,7 +9,7 @@ import { PlaceDetailSheet } from './PlaceDetailSheet';
 import { usePreciseLocation, calculateDistance } from '../lib/location';
 import { VenueCard } from './VenueCard';
 import { Session } from '@supabase/supabase-js';
-import { getSmartTimeLabel, getVibeSentence, getCATNow, isPlaceOpenNow } from '../lib/timeFilter';
+import { getSmartTimeLabel, getVibeSentence, getCATNow, isPlaceOpenNow, getJoburgHour } from '../lib/timeFilter';
 import { SmartFilterBar } from './SmartFilterBar';
 import { motion, AnimatePresence } from 'framer-motion';
 import { enrichPlacesWithImages } from '../utils/imageEnricher';
@@ -125,6 +125,13 @@ export const Discover: React.FC<DiscoverProps> = ({
   const loading = discoveryState.loading;
   const isLaterMode = discoveryState.autoSwitchedToLater;
   const expansionLabel = discoveryState.bannerMessage || null;
+
+  const hour = getJoburgHour();
+  const laterHeader = (hour >= 21 || hour < 5)
+    ? 'Late night — next openings nearby:'
+    : 'Nothing open right now — opens later:';
+
+  const displayVenues = isLaterMode ? venues.slice(3) : venues;
 
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [activeStories, setActiveStories] = useState<StoryRingItem[]>([]);
@@ -640,29 +647,14 @@ export const Discover: React.FC<DiscoverProps> = ({
                 <>
                     {isLaterMode && venues.length > 0 && (
                         <div className="text-left py-4 px-4 bg-white/5 rounded-2xl border border-white/5 mb-4">
-                            <h3 className="text-white font-bold text-base mb-1">Nothing open right now — opens later:</h3>
+                            <h3 className="text-white font-bold text-base mb-1">{laterHeader}</h3>
                             <div className="flex flex-col gap-2 mt-3">
                               {venues.slice(0, 3).map((v) => {
                                 const status = isPlaceOpenNow(v);
-                                let timeLabel;
-                                if (v.is_24_7) {
-                                  timeLabel = 'Open 24/7';
-                                } else if (status.open_hours_unknown) {
-                                  timeLabel = 'Hours TBC';
-                                } else if (status.is_open) {
-                                  timeLabel = 'Open Now'; // Should not typically happen in isLaterMode, but for completeness
-                                } else if (status.opens_at) {
-                                  if (status.opens_today) {
-                                    timeLabel = `Opens today ${status.opens_at}`;
-                                  } else if (status.next_opening_hours) {
-                                    const nextDayName = getDayName(status.next_opening_hours.day_of_week);
-                                    timeLabel = `Opens ${nextDayName} ${status.next_opening_hours.open_time.substring(0, 5)}`;
-                                  } else {
-                                    timeLabel = `Opens ${status.opens_at}`; // Fallback
-                                  }
-                                } else {
-                                  timeLabel = 'Closed';
-                                }
+                                const timeLabel = status.opens_at
+                                  ? (status.opens_today ? `Opens ${status.opens_at}` : `Tomorrow ${status.opens_at}`)
+                                  : status.open_hours_unknown ? 'Hours TBC' : '—';
+
                                 return (
                                   <div key={v.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                                     <div className="min-w-0">
@@ -678,18 +670,18 @@ export const Discover: React.FC<DiscoverProps> = ({
                             </div>
                         </div>
                     )}
-                    {venues.length > 0 && (
+                    {displayVenues.length > 0 && (
                       <>
                         {!isLaterMode && (
                           <VenueCard
-                            key={venues[0].id}
-                            venue={venues[0]}
-                            recommendationScore={scores.find(sc => sc.venueId === venues[0].id)}
+                            key={displayVenues[0].id}
+                            venue={displayVenues[0]}
+                            recommendationScore={scores.find(sc => sc.venueId === displayVenues[0].id)}
                             index={0}
                             heightClass="h-[280px]"
                             badge="Top Pick Tonight"
-                            onClick={() => setSelectedPlace(venues[0] as any as Place)}
-                            onNavigate={() => openTravelSheet(venues[0])}
+                            onClick={() => setSelectedPlace(displayVenues[0] as any as Place)}
+                            onNavigate={() => openTravelSheet(displayVenues[0])}
                           />
                         )}
 
@@ -719,14 +711,14 @@ export const Discover: React.FC<DiscoverProps> = ({
                           </div>
                         )}
 
-                        {venues.slice(isLaterMode ? 3 : 1).map((item, index) => {
+                        {displayVenues.slice(!isLaterMode ? 1 : 0).map((item, index) => {
                             const s = scores.find(sc => sc.venueId === item.id);
                             return (
                                 <VenueCard 
                                     key={item.id}
                                     venue={item}
                                     recommendationScore={s}
-                                    index={index + 1}
+                                    index={index + (isLaterMode ? 3 : 1)}
                                     onClick={() => setSelectedPlace(item as any as Place)}
                                     onNavigate={() => openTravelSheet(item)}
                                 />
