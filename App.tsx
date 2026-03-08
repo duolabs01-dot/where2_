@@ -41,14 +41,18 @@ const AppShell: React.FC = () => {
       const { data } = await supabase.auth.getSession();
       if (mounted) {
         setSession(data.session);
-        const shownThisSession = sessionStorage.getItem('where2_branding_shown');
         if (!data.session) {
+          // Guest: always show welcome screen as gate (must tap CTA to enter)
           setShowWelcome(true);
-        } else if (!shownThisSession) {
-          setShowWelcome(true);
-          sessionStorage.setItem('where2_branding_shown', '1');
         } else {
-          setShowWelcome(false);
+          // Signed-in: show 5-second branding on first load of each browser session
+          const shownThisSession = sessionStorage.getItem('w2_branding');
+          if (!shownThisSession) {
+            setShowWelcome(true);
+            sessionStorage.setItem('w2_branding', '1');
+          } else {
+            setShowWelcome(false);
+          }
         }
       }
     };
@@ -174,7 +178,6 @@ const AppShell: React.FC = () => {
 
   const handleResetVibe = useCallback(() => {
     resetFilters();
-    localStorage.removeItem('where2_welcomed');
     setActiveTab('Discover');
     setShowWelcome(true);
   }, [resetFilters]);
