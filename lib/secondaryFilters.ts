@@ -62,10 +62,10 @@ export const getPriceVibeFromLevel = (priceLevel?: number | null): PriceVibeFilt
   return 'treat';
 };
 
-// Refactor opensLaterToday to use PlaceOpenNowStatus
+// Refactor opensLaterToday to include already open places or those opening later today
 export const opensLaterToday = (place: SecondaryFilterPlace, nowMinutes: number): boolean => {
   const openStatus: PlaceOpenNowStatus = isPlaceOpenNow(place);
-  if (openStatus.is_open) return false; // Already open
+  if (openStatus.is_open) return true; // Include if already open
   if (openStatus.opens_today) {
     // If it opens later today, then true. opens_at is already formatted HH:mm
     const [openH, openM] = openStatus.opens_at!.split(':').map(Number);

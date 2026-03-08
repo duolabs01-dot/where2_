@@ -90,7 +90,7 @@ const DEFAULT_SECONDARY: SecondaryFilters = {
 const DEFAULT_STATE: DiscoveryState = {
   groupMode: 'solo',
   mode: 'RIGHT_NOW',
-  radiusMeters: PRIMARY_WALK_RADIUS_M,
+  radiusMeters: 3000,
   categories: [],
   secondaryFilters: DEFAULT_SECONDARY,
   lastExpansionReason: undefined,

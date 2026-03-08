@@ -123,17 +123,36 @@ export const runDiscovery = async ({
       const { is_open: open_now } = isPlaceOpenNow(place);
       return { ...place, distanceNumeric, open_now };
     })
-    .filter((place) => place.distanceNumeric <= maxRadiusCap)
     .sort((a, b) => a.distanceNumeric - b.distanceNumeric);
 
   if (!openNowOnly) {
-    const radius = Math.max(PRIMARY_WALK_RADIUS_M, Math.min(maxRadiusCap, fallbackRadius));
-    const venues = prepared.filter((place) => place.distanceNumeric <= radius);
+    let usedRadius = Math.max(PRIMARY_WALK_RADIUS_M, Math.min(maxRadiusCap, fallbackRadius));
+    let venues = prepared.filter((place) => place.distanceNumeric <= usedRadius);
+    let expansionCount = 0;
+
+    // Auto-expand in 'later' mode if no venues are found within starting radius
+    if (venues.length === 0) {
+      for (const radius of radiusSteps) {
+        if (radius <= usedRadius) continue;
+        const count = prepared.filter((place) => place.distanceNumeric <= radius).length;
+        usedRadius = radius;
+        expansionCount++;
+        if (count > 0) break;
+      }
+      venues = prepared.filter((place) => place.distanceNumeric <= usedRadius);
+    }
+
+    // Final fallback: if still empty, return nearest 40 regardless of distance
+    if (venues.length === 0 && prepared.length > 0) {
+        venues = prepared.slice(0, 40);
+        usedRadius = venues[venues.length - 1].distanceNumeric;
+    }
+
     return {
       venues,
       mode: 'later',
-      usedRadius: radius,
-      expansionCount: 0,
+      usedRadius,
+      expansionCount,
       elapsedMs: Date.now() - startedAt,
     };
   }
