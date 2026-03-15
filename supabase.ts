@@ -21,7 +21,8 @@ const storedUrl = getStoredValue(STORAGE_KEY_URL);
 const storedKey = getStoredValue(STORAGE_KEY_KEY);
 
 // Support both NEXT_PUBLIC_ prefix and non-prefixed versions for Vercel compatibility
-const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+// Also support raw SUPABASE_URL (no prefix)
+const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
 const supabaseUrl = storedUrl || envUrl || DEFAULT_URL;
