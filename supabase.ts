@@ -7,7 +7,7 @@ const DEMO_MODE_KEY = 'where2_demo_mode';
 
 // Default credentials provided by user
 const DEFAULT_URL = 'https://oikkizufrrsizlhbhuze.supabase.co';
-const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pa2tpenVmcnJzaXpsaGJodXplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4OTM3MjQsImV4cCI6MjA4NDY5NzI0fQ.WHguLSn9r4zVQ7uq7h0MTPiOpAw7zjxzTM1r8TmXtmc';
+const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pa2tpenVmcnJzaXpsaGJodXplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg4OTM3MjQsImV4cCI6MjA4NDQ2OTcyNH0.WHguLSn9r4zVQ7uq7h0MTPiOpAw7zjxzTM1r8TmXtmc';
 
 const isBrowser = typeof window !== 'undefined';
 
