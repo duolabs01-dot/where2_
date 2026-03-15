@@ -259,6 +259,7 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           hasLoadedFirstResults: true,
         }));
       } catch (error) {
+        console.error('[DiscoveryContext] fetch error:', error);
         setState((prev) => ({ ...prev, loading: false, refreshTick: prev.refreshTick + 1 }));
       } finally {
         hasFetchedOnceRef.current = true;

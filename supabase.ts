@@ -30,7 +30,8 @@ console.log('[Supabase] Initializing with:', {
   url: supabaseUrl, 
   keyPrefix: supabaseKey?.substring(0, 20) + '...',
   fromLocalStorage: !!storedKey,
-  fromEnv: !!envKey 
+  fromEnv: !!envKey,
+  envKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
 });
 
 // Initialize with valid values
