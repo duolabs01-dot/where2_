@@ -20,6 +20,7 @@ const getStoredValue = (key: string) => {
 const storedUrl = getStoredValue(STORAGE_KEY_URL);
 const storedKey = getStoredValue(STORAGE_KEY_KEY);
 
+// Support both NEXT_PUBLIC_ prefix and non-prefixed versions for Vercel compatibility
 const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
@@ -28,10 +29,11 @@ const supabaseKey = storedKey || envKey || DEFAULT_KEY;
 
 console.log('[Supabase] Initializing with:', { 
   url: supabaseUrl, 
-  keyPrefix: supabaseKey?.substring(0, 20) + '...',
+  keyLength: supabaseKey?.length,
   fromLocalStorage: !!storedKey,
-  fromEnv: !!envKey,
-  envKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+  fromEnvUrl: !!envUrl,
+  fromEnvKey: !!envKey,
+  rawEnvKeys: Object.keys(process.env).filter(k => k.toLowerCase().includes('supabase'))
 });
 
 // Initialize with valid values
