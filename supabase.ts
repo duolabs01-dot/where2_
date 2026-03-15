@@ -21,20 +21,19 @@ const storedUrl = getStoredValue(STORAGE_KEY_URL);
 const storedKey = getStoredValue(STORAGE_KEY_KEY);
 
 // Support both NEXT_PUBLIC_ prefix and non-prefixed versions for Vercel compatibility
-// Also support raw SUPABASE_URL (no prefix)
-const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const envUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
 const supabaseUrl = storedUrl || envUrl || DEFAULT_URL;
 const supabaseKey = storedKey || envKey || DEFAULT_KEY;
 
-console.log('[Supabase] Initializing with:', { 
+console.log('[Supabase] Init:', { 
   url: supabaseUrl, 
-  keyLength: supabaseKey?.length,
-  fromLocalStorage: !!storedKey,
-  fromEnvUrl: !!envUrl,
-  fromEnvKey: !!envKey,
-  rawEnvKeys: Object.keys(process.env).filter(k => k.toLowerCase().includes('supabase'))
+  keyLen: supabaseKey?.length,
+  keySource: storedKey ? 'localStorage' : envKey ? 'env' : 'default',
+  envUrl: !!envUrl,
+  envKey: !!envKey,
+  allEnv: Object.keys(process.env).filter(k => k.toLowerCase().includes('supabase'))
 });
 
 // Initialize with valid values
