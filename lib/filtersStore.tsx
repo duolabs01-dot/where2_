@@ -46,8 +46,8 @@ export const useFilters = () => {
     setMode: setGroupMode,
     setRadiusMeters: (radiusMeters: number) => setRadiusMeters(radiusMeters, 'explore'),
     setOpenNowOnly,
-    setOrigin: (mode: 'gps' | 'fallback' | 'preferences' = 'preferences') =>
-      setOrigin(state.origin.lat, state.origin.lng, mode),
+    setOrigin: (lat: number, lng: number, mode: 'gps' | 'fallback' | 'preferences' = 'preferences') =>
+      setOrigin(lat, lng, mode),
     setCategories,
     setTonightOnly,
     setCrowd,

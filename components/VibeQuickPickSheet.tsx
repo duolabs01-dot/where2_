@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { GlassSheet, PrimaryButton } from './Layouts';
 import { SearchIntent } from '../types';
 import { useFilters, FilterMode } from '../lib/filtersStore'; 
+import { useDiscoveryContext } from '../src/state/DiscoveryContext'; 
 
 interface VibeQuickPickSheetProps {
   onApply: (intent: SearchIntent) => void;
@@ -41,6 +42,7 @@ export const VibeQuickPickSheet: React.FC<VibeQuickPickSheetProps> = ({ onApply,
       resetFilters,
       applyCustomise 
   } = useFilters();
+  const { state: discoveryState } = useDiscoveryContext();
 
   // Local state initialized from store (converting Store Categories -> UI Categories)
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
@@ -70,7 +72,7 @@ export const VibeQuickPickSheet: React.FC<VibeQuickPickSheetProps> = ({ onApply,
     setCategories(storeCats);
     setOpenNowOnly(true); // "Vibe" implies NOW
     setRadiusMeters(600); // 8-min walk default
-    setOrigin('preferences');
+    setOrigin(discoveryState.origin.lat, discoveryState.origin.lng, 'preferences');
     applyCustomise();
 
     // 3. Log
