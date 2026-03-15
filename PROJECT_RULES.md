@@ -2,7 +2,7 @@
 
 
 
-You are editing a Next.js 14+ App Router project (TypeScript strict, Tailwind CSS, Supabase for venues/operating hours/migrations, Gemini API for location/venue features).
+You are editing a Next.js 14+ App Router project (TypeScript strict, Tailwind CSS, Supabase for venues/operating hours/migrations).
 
 
 
@@ -15,8 +15,6 @@ You are editing a Next.js 14+ App Router project (TypeScript strict, Tailwind CS
 - Supabase: use client from `lib/supabase.ts`; prefer raw SQL in migrations for schema changes.
 
 - Operating hours logic: must handle 24/7 venues, SAST (Johannesburg) timezone, multi-day spans, validation scripts (`npm run hours:verify`, `hours:apply`).    
-
-- Gemini API: add retry logic + caching where missing; protect `NEXT_PUBLIC_GEMINI_API_KEY`.
 
 - Vercel deploy: never break `npm run build`. Protect all env vars.
 

@@ -80,7 +80,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-[200] flex items-end justify-center pointer-events-none"
+      className="fixed bottom-0 left-0 right-0 z-[600] flex items-end justify-center pointer-events-none"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <motion.div

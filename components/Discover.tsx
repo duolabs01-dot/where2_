@@ -300,10 +300,13 @@ export const Discover: React.FC<DiscoverProps> = ({
   }, [fetchStoriesAndFriends]);
 
   useEffect(() => {
+    console.log('[Discover] location effect, locationLoading:', locationLoading, 'location:', location);
     if (!locationLoading) {
       if (location) {
+        console.log('[Discover] Setting origin to GPS location:', location.latitude, location.longitude);
         setOrigin(location.latitude, location.longitude, 'gps');
       } else {
+        console.log('[Discover] Setting origin to fallback location');
         setOrigin(-26.2041, 28.0473, 'fallback');
       }
     }

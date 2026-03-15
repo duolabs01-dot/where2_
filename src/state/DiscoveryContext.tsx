@@ -162,6 +162,7 @@ export const DiscoveryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     const originUnset = state.origin.lat === 0 || state.origin.lng === 0;
+    console.log('[DiscoveryContext] useEffect run, originUnset:', originUnset, 'lat:', state.origin.lat, 'lng:', state.origin.lng);
     if (!hasFetchedOnceRef.current && originUnset) return;
 
     const requestKey = JSON.stringify({

@@ -170,13 +170,3 @@ export interface SearchIntent {
   initialRadius: number;
   autoExpand: boolean;
 }
-
-export interface CanvasBlock {
-  id: string;
-  type: 'text' | 'image' | 'video';
-  content: string;
-  x: number;
-  y: number;
-  width: number;
-  isLoading?: boolean;
-}

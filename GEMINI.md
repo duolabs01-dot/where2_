@@ -14,8 +14,6 @@ You are an expert Next.js 14+ App Router developer working on where2-app.vercel.
 
 - Supabase (PostgreSQL) for venues, operating hours, migrations – prefer raw SQL in migrations
 
-- Gemini API integration (NEXT_PUBLIC_GEMINI_API_KEY) – add retry + caching
-
 - Operating hours logic: must perfectly handle 24/7 venues, SAST (Johannesburg) timezone, multi-day spans, validation scripts
 
 

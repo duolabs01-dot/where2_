@@ -315,7 +315,8 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
         initial={prefersReducedMotion ? undefined : "hidden"}
         animate={prefersReducedMotion ? undefined : "visible"}
         exit={prefersReducedMotion ? undefined : "exit"}
-        className={`fixed bottom-0 w-full h-[95vh] rounded-t-[32px] overflow-hidden shadow-2xl flex flex-col pointer-events-auto ${tokens.surface}`}
+        className={`fixed bottom-0 w-full rounded-t-[32px] overflow-hidden shadow-2xl flex flex-col pointer-events-auto ${tokens.surface}`}
+        style={{ height: 'calc(100dvh - env(safe-area-inset-top))', top: 'env(safe-area-inset-top)' }}
       >
           <div className="absolute top-0 left-0 right-0 z-50 p-4 flex justify-between items-center pointer-events-none">
               <button onClick={onClose} className="pointer-events-auto size-10 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white hover:bg-black/60 active:scale-95 transition-all"><span className="material-symbols-outlined">expand_more</span></button>
@@ -416,7 +417,7 @@ const PlaceDetailContent: React.FC<{ place: Place; onClose: () => void; onShowMa
           </div>
           <div
             className={`sticky bottom-0 left-0 right-0 p-4 ${tokens.surface} backdrop-blur-xl border-t border-white/10 z-50 flex gap-3`}
-            style={{ paddingBottom: 'var(--bottom-nav-safe)' }}
+            style={{ paddingBottom: 'calc(var(--bottom-nav-safe) + 8px)' }}
           >
             <motion.button whileTap={{ scale: 0.95 }} onClick={handleOpenPlanSelector} className="flex-1 py-4 rounded-2xl bg-white/10 border border-white/10 text-white font-bold text-sm hover:bg-white/20 transition-colors flex items-center justify-center gap-2"><span className="material-symbols-outlined text-lg">calendar_add_on</span>Add to Plan</motion.button>
             <motion.button whileTap={{ scale: 0.95 }} onClick={handleNavigate} className={`flex-[2] py-4 rounded-2xl ${tokens.accentBg} text-black font-bold text-sm shadow-[0_0_30px_rgba(159,80,255,0.3)] hover:shadow-[0_0_40px_rgba(159,80,255,0.5)] transition-all flex items-center justify-center gap-2 relative overflow-hidden group`}><div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-[100%] group-hover:animate-[shimmer_1.5s_infinite]" /><span className="material-symbols-outlined text-lg">near_me</span>Go there</motion.button>

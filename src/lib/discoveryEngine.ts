@@ -103,9 +103,15 @@ export const runDiscovery = async ({
   const radiusSteps = buildRadiusSteps(maxRadiusCap);
 
   // Update Supabase query to select is_24_7 and join operating_hours
+  console.log('[Discovery] Fetching places for lat:', userLat, 'lng:', userLng);
   const { data, error } = await supabase.from('places').select('*, is_24_7, operating_hours(*)').limit(500);
+  console.log('[Discovery] Places response:', { dataCount: data?.length, error });
   if (error) {
     throw new Error(error.message || 'Failed to fetch places');
+  }
+
+  if (!data || data.length === 0) {
+    console.warn('[Discovery] No places found in database');
   }
 
   const prepared: DiscoveryVenue[] = ((data || []) as Place[])
