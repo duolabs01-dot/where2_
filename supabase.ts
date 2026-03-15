@@ -26,8 +26,25 @@ const envKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE
 const supabaseUrl = storedUrl || envUrl || DEFAULT_URL;
 const supabaseKey = storedKey || envKey || DEFAULT_KEY;
 
+console.log('[Supabase] Initializing with:', { 
+  url: supabaseUrl, 
+  keyPrefix: supabaseKey?.substring(0, 20) + '...',
+  fromLocalStorage: !!storedKey,
+  fromEnv: !!envKey 
+});
+
 // Initialize with valid values
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  global: {
+    headers: {
+      'x-client-info': 'where2-app',
+    },
+  },
+});
 
 export const isSupabaseConfigured = () => {
   const isDemo = isBrowser && localStorage.getItem(DEMO_MODE_KEY) === 'true';
