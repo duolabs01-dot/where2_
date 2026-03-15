@@ -1,8 +1,7 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { NavTab } from '../types';
-import { motion, AnimatePresence } from 'framer-motion';
-import { prefersReducedMotion, springs, useHaptic } from '../utils/animations';
+import { useHaptic } from '../utils/animations';
 
 interface BottomNavProps {
   activeTab: NavTab;
@@ -10,72 +9,17 @@ interface BottomNavProps {
   onAdd: (tab: NavTab) => void;
 }
 
-type NavVisibility = 'visible' | 'hidden' | 'peek';
-
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, onAdd }) => {
   const { trigger } = useHaptic();
-  const [visibility, setVisibility] = useState<NavVisibility>('visible');
-  const lastScrollY = useRef(0);
-  const scrollTimeout = useRef<any>(null);
 
-  useEffect(() => {
-    const scrollHost = document.querySelector('[data-scroll-host="main"]');
-    if (!scrollHost) return;
-
-    const handleScroll = () => {
-      const currentScrollY = scrollHost.scrollTop;
-      const delta = currentScrollY - lastScrollY.current;
-      
-      // Clear peek timer on active scroll
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-        scrollTimeout.current = null;
-      }
-
-      // Logic
-      if (currentScrollY < 50) {
-        // Always visible at very top
-        setVisibility('visible');
-      } else if (delta > 12) {
-        // Scrolling Down -> Hide
-        setVisibility('hidden');
-      } else if (delta < -8) {
-        // Scrolling Up -> Show
-        setVisibility('visible');
-      }
-
-      lastScrollY.current = currentScrollY;
-
-      // Stop scrolling detection -> Peek
-      if (currentScrollY > 50) {
-        scrollTimeout.current = setTimeout(() => {
-          setVisibility('peek');
-        }, 1200);
-      }
-    };
-
-    // Use passive listener for best performance
-    scrollHost.addEventListener('scroll', handleScroll, { passive: true });
-    
-    return () => {
-      scrollHost.removeEventListener('scroll', handleScroll);
-      if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-    };
-  }, []);
-
-  const handleInteraction = () => {
-    if (visibility !== 'visible') {
-      setVisibility('visible');
-      if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-    }
-  };
+  const handleInteraction = () => {};
 
   const navItems = [
-    { id: 'Discover', icon: 'explore', label: 'Home' },
-    { id: 'Map', icon: 'map', label: 'Map' },
-    { id: 'add', icon: 'add', label: 'Quick' },
-    { id: 'Plans', icon: 'calendar_today', label: 'Plans' },
-    { id: 'Profile', icon: 'person', label: 'You' },
+    { id: 'Discover', icon: 'explore' },
+    { id: 'Map', icon: 'map' },
+    { id: 'add', icon: 'add' },
+    { id: 'Plans', icon: 'calendar_today' },
+    { id: 'Profile', icon: 'person' },
   ];
 
   return (
@@ -83,40 +27,28 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
       className="fixed bottom-0 left-0 right-0 z-[600] flex items-end justify-center pointer-events-none"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
-      <motion.div
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ 
-          y: visibility === 'hidden' ? 18 : 0, 
-          scale: visibility === 'hidden' ? 0.92 : 1,
-          opacity: visibility === 'hidden' ? 0.08 : (visibility === 'peek' ? 0.55 : 1),
-          pointerEvents: visibility === 'hidden' ? 'none' : 'auto'
-        }}
-        transition={prefersReducedMotion ? undefined : springs.snappy}
+      <div
         onClick={handleInteraction}
-        className="flex items-center gap-0.5 p-1 rounded-full bg-black/10 backdrop-blur-md border border-white/5 shadow-[0_4px_16px_rgba(0,0,0,0.2)] overflow-hidden cursor-pointer"
+        className="flex items-center justify-center gap-1 px-2 w-full max-w-md cursor-pointer pointer-events-auto"
       >
-        {/* Subtle glass reflection */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
-
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           const isAdd = item.id === 'add';
 
           if (isAdd) {
             return (
-              <motion.button
+              <button
                 key="add"
-                whileTap={prefersReducedMotion ? undefined : { scale: 0.9, transition: springs.micro }}
                 onClick={(e) => { 
                     e.stopPropagation(); 
                     handleInteraction(); 
                     trigger(); 
                     onAdd(activeTab); 
                 }}
-                className="relative flex items-center justify-center w-12 h-11 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors border border-white/5 mx-0.5"
+                className="relative flex items-center justify-center w-12 h-12 rounded-full bg-white/10 text-white"
               >
-                <span className="material-symbols-outlined text-[24px] drop-shadow-md">add</span>
-              </motion.button>
+                <span className="material-symbols-outlined text-[24px]">add</span>
+              </button>
             );
           }
 
@@ -129,47 +61,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
                   trigger(); 
                   setActiveTab(item.id as NavTab); 
               }}
-              className={`relative flex items-center justify-center h-11 rounded-full transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isActive ? 'px-5 bg-white/10 border border-white/5' : 'w-12 hover:bg-white/5'}`}
+              className={`relative flex items-center justify-center h-12 flex-1 ${isActive ? '' : 'opacity-60'}`}
             >
-              <div className="flex items-center justify-center gap-2 relative z-10">
-                <motion.span
-                  className={`material-symbols-outlined text-[22px] transition-colors duration-300 ${isActive ? 'text-white' : 'text-white/60'}`}
-                  animate={
-                    prefersReducedMotion
-                      ? undefined
-                      : {
-                          fontVariationSettings: isActive
-                            ? "'FILL' 1, 'wght' 500"
-                            : "'FILL' 0, 'wght' 300",
-                        }
-                  }
-                  transition={prefersReducedMotion ? undefined : springs.micro}
-                  style={{
-                    fontVariationSettings: isActive ? "'FILL' 1, 'wght' 500" : "'FILL' 0, 'wght' 300",
-                    textShadow: isActive ? '0 0 12px rgba(255,255,255,0.3)' : 'none',
-                  }}
-                >
-                  {item.icon}
-                </motion.span>
-                
-                <AnimatePresence>
-                  {isActive && (
-                    <motion.span 
-                      initial={{ width: 0, opacity: 0, scale: 0.5 }}
-                      animate={{ width: 'auto', opacity: 1, scale: 1 }}
-                      exit={{ width: 0, opacity: 0, scale: 0.5 }}
-                      transition={prefersReducedMotion ? undefined : springs.snappy}
-                      className="text-[12px] font-bold text-white whitespace-nowrap overflow-hidden origin-left"
-                    >
-                      {item.label}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </div>
+              <span className={`material-symbols-outlined text-[24px] ${isActive ? 'text-white' : 'text-white/60'}`}>
+                {item.icon}
+              </span>
             </button>
           );
         })}
-      </motion.div>
+      </div>
     </div>
   );
 };
