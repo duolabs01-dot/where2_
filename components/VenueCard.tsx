@@ -88,7 +88,11 @@ export const VenueCard: React.FC<VenueCardProps> = ({
   const shouldAnimate = !prefersReducedMotion;
   const openStatus = useMemo(() => isPlaceOpenNow(venue), [venue]);
   const price = venue.price_level ? 'R'.repeat(Math.max(1, venue.price_level)) : 'RR';
-  const distance = venue.distance || (venue.distanceNumeric ? `${Math.round(venue.distanceNumeric)}m` : 'Nearby');
+  const distance = venue.distance || (venue.distanceNumeric 
+    ? (venue.distanceNumeric >= 1000 
+        ? `${(venue.distanceNumeric / 1000).toFixed(1)}km` 
+        : `${Math.round(venue.distanceNumeric)}m`)
+    : 'Nearby');
   const scorePct = recommendationScore
     ? Math.round((Math.max(0, Math.min(3.6, recommendationScore.score || 0)) / 3.6) * 100)
     : null;

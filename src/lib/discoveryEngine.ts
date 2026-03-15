@@ -192,14 +192,16 @@ export const runDiscovery = async ({
     };
   }
 
-  const closestForLater = prepared.slice(0, 40);
+  const FIVE_KM = 5000;
+  const venuesWithin5km = prepared.filter((place) => place.distanceNumeric <= FIVE_KM);
+  const forLater = venuesWithin5km.length > 0 ? venuesWithin5km : prepared.slice(0, 40);
   return {
-    venues: closestForLater,
+    venues: forLater,
     mode: 'later',
-    usedRadius: maxRadiusCap,
+    usedRadius: venuesWithin5km.length > 0 ? FIVE_KM : maxRadiusCap,
     expansionCount: radiusSteps.length - 1,
     bannerMessage: EXACT_RIDE_BANNER,
-    laterMessage: "Aweh, it's not really happening close by right now — here are the nearest spots for later.",
+    laterMessage: "Aweh, it's not really happening close by right now — here are spots open later within 5km.",
     elapsedMs: Date.now() - startedAt,
   };
 };

@@ -93,7 +93,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab, o
         }}
         transition={prefersReducedMotion ? undefined : springs.snappy}
         onClick={handleInteraction}
-        className="flex items-center gap-1 p-1.5 rounded-full bg-black/20 backdrop-blur-2xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden cursor-pointer"
+        className="flex items-center gap-0.5 p-1 rounded-full bg-black/10 backdrop-blur-md border border-white/5 shadow-[0_4px_16px_rgba(0,0,0,0.2)] overflow-hidden cursor-pointer"
       >
         {/* Subtle glass reflection */}
         <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />

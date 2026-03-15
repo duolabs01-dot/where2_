@@ -426,24 +426,14 @@ export const Discover: React.FC<DiscoverProps> = ({
 
       <PullToRefresh onRefresh={handleRefresh} onScroll={handleScroll} className="flex-1 relative z-10">
         
-        {/* Dynamic Spacer for Transparent Header */}
-        <motion.div 
-            initial={false}
-            animate={{ height: isCollapsed ? 54 : 72 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="w-full shrink-0 pt-safe"
-        />
+        {/* Compact spacer for header */}
+        <div className="w-full shrink-0 h-2" />
 
-        <div className="px-4 mt-2 mb-2">
-            <div className="flex justify-between items-end mb-1 h-9">
-                <motion.h2 
-                    initial={{ opacity: 0, y: 5 }} 
-                    animate={{ opacity: 1, y: 0 }}
-                    key={timeLabel.title}
-                    className="text-3xl font-display font-bold text-white tracking-tight leading-none drop-shadow-md"
-                >
+        <div className="px-3 mt-1 mb-2">
+            <div className="flex justify-between items-end">
+                <h2 className="text-xl font-display font-bold text-white tracking-tight leading-tight">
                     {timeLabel.title}
-                </motion.h2>
+                </h2>
                 <AnimatePresence>
                     {shouldShowUpdated && (
                         <motion.span 
